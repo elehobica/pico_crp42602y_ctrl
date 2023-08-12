@@ -7,7 +7,11 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 
-static constexpr uint PIN_SOLENOID_CTRL = 19;
+static constexpr uint PIN_SOLENOID_CTRL   = 16;
+static constexpr uint PIN_CASSETTE_DETECT = 17;
+static constexpr uint PIN_FUNC_STATUS_SW  = 18;
+static constexpr uint PIN_ROTATION_SENS   = 19;
+
 static bool _playDirA = true;
 
 void ctrlSolenoid(bool flag)
@@ -19,9 +23,14 @@ void ctrlSolenoid(bool flag)
     }
 }
 
+bool isGearInFunc()
+{
+    return !gpio_get(PIN_FUNC_STATUS_SW);
+}
+
 void funcSequence(bool pinchDirA, bool headPosPlay, bool reelFwd)
 {
-    // Function sequence has 190 degree of function gear to roll in 0.4 second
+    // Function sequence has 190 degree of function gear to roll in 400 ms
     // Timing definitions (milliseconds) (All values are set experimentally)
     constexpr uint32_t tInitS    = 0;          // Unhook the function gear
     constexpr uint32_t tInitE    = 20;
@@ -52,20 +61,24 @@ void returnSequence()
 {
     // Return sequence has (360 - 190) degree of function gear,
     //  which is needed to take another function when the gear is already in function position
+    //  it is supposed to take 360 ms
     ctrlSolenoid(true);
     sleep_ms(20);
     ctrlSolenoid(false);
+    sleep_ms(340);
+    sleep_ms(20);  // additional margin
 }
 
 void stop()
 {
     printf("stop\r\n");
-    returnSequence();
+    if (isGearInFunc()) returnSequence();
 }
 
 void playA()
 {
     printf("play A\r\n");
+    if (isGearInFunc()) returnSequence();
     funcSequence(true, true, true);
     _playDirA = true;
 }
@@ -73,6 +86,7 @@ void playA()
 void playB()
 {
     printf("play B\r\n");
+    if (isGearInFunc()) returnSequence();
     funcSequence(false, true, false);
     _playDirA = false;
 }
@@ -83,6 +97,7 @@ void fwd()
     //  therefore, fwdA and fwdB are the opposite reel direction.
     //  it should be re-translated if the controll is done by physical direction '<<' '>>'
     printf("fwd%c\r\n", _playDirA ? 'A' : 'B');
+    if (isGearInFunc()) returnSequence();
     funcSequence(_playDirA, false, _playDirA);
 }
 
@@ -92,6 +107,7 @@ void rwd()
     //  therefore, rwdA and rwdB are the opposite reel direction
     //  it should be re-translated if the controll is done by physical direction '<<' '>>'
     printf("rwd%c\r\n", _playDirA ? 'A' : 'B');
+    if (isGearInFunc()) returnSequence();
     funcSequence(_playDirA, false, !_playDirA);
 }
 
@@ -99,9 +115,22 @@ int main()
 {
     stdio_init_all();
 
+    // GPIO settings
     gpio_init(PIN_SOLENOID_CTRL);
     gpio_put(PIN_SOLENOID_CTRL, 1);  // set default = 1 before output mode
     gpio_set_dir(PIN_SOLENOID_CTRL, GPIO_OUT);
+
+    gpio_init(PIN_CASSETTE_DETECT);
+    gpio_set_dir(PIN_CASSETTE_DETECT, GPIO_IN);
+    gpio_pull_up(PIN_CASSETTE_DETECT);
+
+    gpio_init(PIN_FUNC_STATUS_SW);
+    gpio_set_dir(PIN_FUNC_STATUS_SW, GPIO_IN);
+    gpio_pull_up(PIN_FUNC_STATUS_SW);
+
+    gpio_init(PIN_ROTATION_SENS);
+    gpio_set_dir(PIN_ROTATION_SENS, GPIO_IN);
+    gpio_pull_up(PIN_ROTATION_SENS);
 
     while (true) {
         int c = getchar_timeout_us(0);
