@@ -1,8 +1,8 @@
 # Raspberry Pi Pico CRP42602Y mechanism control
 
 ## Overview
-* Control firmware for CRP42602Y auto-reverse cassette tape mechanism
-* Support solenoid control timing for function gear
+* Control firmware for CRP42602Y auto-reverse cassette tape deck mechanism
+* Generate solenoid control timing for function gear of CRP42602Y 
 
 ## Supported Board and Peripheral Devices
 * Raspberry Pi Pico (rp2040)

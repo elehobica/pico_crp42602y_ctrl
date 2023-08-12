@@ -28,6 +28,11 @@ bool isGearInFunc()
     return !gpio_get(PIN_FUNC_STATUS_SW);
 }
 
+bool hasCassette()
+{
+    return !gpio_get(PIN_CASSETTE_DETECT);
+}
+
 void funcSequence(bool pinchDirA, bool headPosPlay, bool reelFwd)
 {
     // Function sequence has 190 degree of function gear to roll in 400 ms
@@ -71,22 +76,26 @@ void returnSequence()
 
 void stop()
 {
-    printf("stop\r\n");
-    if (isGearInFunc()) returnSequence();
+    if (isGearInFunc()) {
+        printf("stop\r\n");
+        returnSequence();
+    }
 }
 
 void playA()
 {
-    printf("play A\r\n");
     if (isGearInFunc()) returnSequence();
+    if (!hasCassette()) return;
+    printf("play A\r\n");
     funcSequence(true, true, true);
     _playDirA = true;
 }
 
 void playB()
 {
-    printf("play B\r\n");
     if (isGearInFunc()) returnSequence();
+    if (!hasCassette()) return;
+    printf("play B\r\n");
     funcSequence(false, true, false);
     _playDirA = false;
 }
@@ -96,8 +105,9 @@ void fwd()
     // Evacuate head, however the head direction still matters for which side the head is snipping,
     //  therefore, fwdA and fwdB are the opposite reel direction.
     //  it should be re-translated if the controll is done by physical direction '<<' '>>'
-    printf("fwd%c\r\n", _playDirA ? 'A' : 'B');
     if (isGearInFunc()) returnSequence();
+    if (!hasCassette()) return;
+    printf("fwd %c\r\n", _playDirA ? 'A' : 'B');
     funcSequence(_playDirA, false, _playDirA);
 }
 
@@ -106,8 +116,9 @@ void rwd()
     // Evacuate head, however the head direction still matters for which side the head is snipping,
     //  therefore, rwdA and rwdB are the opposite reel direction
     //  it should be re-translated if the controll is done by physical direction '<<' '>>'
-    printf("rwd%c\r\n", _playDirA ? 'A' : 'B');
     if (isGearInFunc()) returnSequence();
+    if (!hasCassette()) return;
+    printf("rwd %c\r\n", _playDirA ? 'A' : 'B');
     funcSequence(_playDirA, false, !_playDirA);
 }
 
@@ -131,6 +142,8 @@ int main()
     gpio_init(PIN_ROTATION_SENS);
     gpio_set_dir(PIN_ROTATION_SENS, GPIO_IN);
     gpio_pull_up(PIN_ROTATION_SENS);
+
+    stop();
 
     while (true) {
         int c = getchar_timeout_us(0);
