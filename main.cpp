@@ -9,6 +9,7 @@
 #include "pico/stdlib.h"
 #include "hardware/pwm.h"
 
+static constexpr uint PIN_LED             = PICO_DEFAULT_LED_PIN;
 static constexpr uint PIN_SOLENOID_CTRL   = 2;
 static constexpr uint PIN_CASSETTE_DETECT = 3;
 static constexpr uint PIN_FUNC_STATUS_SW  = 4;
@@ -25,6 +26,7 @@ static constexpr int INTERVAL_MS_ROTATION_SENS_CHECK = 1000;
 static bool _playDirA = true;
 
 static bool tcRotationSensCheck(repeating_timer_t *rt) {
+    gpio_put(PIN_LED, !gpio_get(PIN_LED));
     uint16_t rotCount = pwm_get_counter(pwmSliceNum);
     uint16_t rotDiff;
     if (rotCount < prevRotCount) {
@@ -109,7 +111,10 @@ void stop()
 void playA()
 {
     if (isGearInFunc()) returnSequence();
-    if (!hasCassette()) return;
+    if (!hasCassette()) {
+        printf("no cassette\r\n");
+        return;
+    }
     printf("play A\r\n");
     funcSequence(true, true, true);
     _playDirA = true;
@@ -118,7 +123,10 @@ void playA()
 void playB()
 {
     if (isGearInFunc()) returnSequence();
-    if (!hasCassette()) return;
+    if (!hasCassette()) {
+        printf("no cassette\r\n");
+        return;
+    }
     printf("play B\r\n");
     funcSequence(false, true, false);
     _playDirA = false;
@@ -126,24 +134,28 @@ void playB()
 
 void fwd()
 {
-    // Evacuate head, however the head direction still matters for which side the head is snipping,
-    //  therefore, fwdA and fwdB are the opposite reel direction.
-    //  it should be re-translated if the controll is done by physical direction '<<' '>>'
+    // Evacuate head, however the head direction still matters for which side the head is tracing,
+    //  therefore, previous head direction is preserved and it may mean fwd A or rwd B
     if (isGearInFunc()) returnSequence();
-    if (!hasCassette()) return;
-    printf("fwd %c\r\n", _playDirA ? 'A' : 'B');
-    funcSequence(_playDirA, false, _playDirA);
+    if (!hasCassette()) {
+        printf("no cassette\r\n");
+        return;
+    }
+    printf("fwd (%s)\r\n", _playDirA ? "fwd A" : "rwd B");
+    funcSequence(_playDirA, false, true);
 }
 
 void rwd()
 {
-    // Evacuate head, however the head direction still matters for which side the head is snipping,
-    //  therefore, rwdA and rwdB are the opposite reel direction
-    //  it should be re-translated if the controll is done by physical direction '<<' '>>'
+    // Evacuate head, however the head direction still matters for which side the head is tracing,
+    //  therefore, previous head direction is preserved and it may mean rwd A or fwd B
     if (isGearInFunc()) returnSequence();
-    if (!hasCassette()) return;
-    printf("rwd %c\r\n", _playDirA ? 'A' : 'B');
-    funcSequence(_playDirA, false, !_playDirA);
+    if (!hasCassette()) {
+        printf("no cassette\r\n");
+        return;
+    }
+    printf("rwd (%s)\r\n", _playDirA ? "rwd A" : "fwd B");
+    funcSequence(_playDirA, false, false);
 }
 
 int main()
@@ -151,6 +163,10 @@ int main()
     stdio_init_all();
 
     // GPIO settings
+    gpio_init(PIN_LED);
+    gpio_set_dir(PIN_LED, GPIO_OUT);
+    gpio_put(PIN_LED, 0);
+
     gpio_init(PIN_SOLENOID_CTRL);
     gpio_put(PIN_SOLENOID_CTRL, 1);  // set default = 1 before output mode
     gpio_set_dir(PIN_SOLENOID_CTRL, GPIO_OUT);
@@ -177,6 +193,8 @@ int main()
         printf("Failed to add timer\n");
         return 0;
     }
+
+    printf("CRP42602Y control started\r\n");
 
     stop();
 
