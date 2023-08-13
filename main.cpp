@@ -5,14 +5,38 @@
 /------------------------------------------------------*/
 
 #include <stdio.h>
-#include "pico/stdlib.h"
 
-static constexpr uint PIN_SOLENOID_CTRL   = 16;
-static constexpr uint PIN_CASSETTE_DETECT = 17;
-static constexpr uint PIN_FUNC_STATUS_SW  = 18;
-static constexpr uint PIN_ROTATION_SENS   = 19;
+#include "pico/stdlib.h"
+#include "hardware/pwm.h"
+
+static constexpr uint PIN_SOLENOID_CTRL   = 2;
+static constexpr uint PIN_CASSETTE_DETECT = 3;
+static constexpr uint PIN_FUNC_STATUS_SW  = 4;
+static constexpr uint PIN_ROTATION_SENS   = 5;  // This needs to be PWM_B pin
+
+static uint pwmSliceNum;
+static uint16_t prevRotCount = 0;
+volatile static bool rotating = false;
+
+// ADC Timer & frequency
+static repeating_timer_t timer;
+static constexpr int INTERVAL_MS_ROTATION_SENS_CHECK = 1000;
 
 static bool _playDirA = true;
+
+static bool tcRotationSensCheck(repeating_timer_t *rt) {
+    uint16_t rotCount = pwm_get_counter(pwmSliceNum);
+    uint16_t rotDiff;
+    if (rotCount < prevRotCount) {
+        rotDiff = (uint16_t) ((1U<<16) + rotCount - prevRotCount);
+    } else {
+        rotDiff = rotCount - prevRotCount;
+    }
+    rotating = rotDiff > 0;
+    //printf("pwm counter = %d, rotating = %d\r\n", (int) rotCount, rotating ? 1 : 0);
+    prevRotCount = rotCount;
+    return true; // keep repeating
+}
 
 void ctrlSolenoid(bool flag)
 {
@@ -139,9 +163,20 @@ int main()
     gpio_set_dir(PIN_FUNC_STATUS_SW, GPIO_IN);
     gpio_pull_up(PIN_FUNC_STATUS_SW);
 
-    gpio_init(PIN_ROTATION_SENS);
-    gpio_set_dir(PIN_ROTATION_SENS, GPIO_IN);
+    // PWM settings
     gpio_pull_up(PIN_ROTATION_SENS);
+    gpio_set_function(PIN_ROTATION_SENS, GPIO_FUNC_PWM);
+    pwmSliceNum = pwm_gpio_to_slice_num(PIN_ROTATION_SENS);
+    pwm_config pwmConfig = pwm_get_default_config();
+    pwm_config_set_clkdiv_mode(&pwmConfig, PWM_DIV_B_RISING);
+    pwm_config_set_clkdiv_int(&pwmConfig, 1);
+    pwm_init(pwmSliceNum, &pwmConfig, true);
+
+    // negative timeout means exact delay (rather than delay between callbacks)
+    if (!add_repeating_timer_us(-INTERVAL_MS_ROTATION_SENS_CHECK * 1000, tcRotationSensCheck, nullptr, &timer)) {
+        printf("Failed to add timer\n");
+        return 0;
+    }
 
     stop();
 
@@ -153,6 +188,11 @@ int main()
             if (c == 'b') playB();
             if (c == 'f') fwd();
             if (c == 'r') rwd();
+        }
+
+        // Stop detection
+        if (isGearInFunc() && !rotating) {
+            stop();
         }
     }
 

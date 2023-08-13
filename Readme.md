@@ -11,10 +11,10 @@
 ## Pin Assignment & Connection
 | Pico Pin # | GPIO | Function | Connection |
 ----|----|----|----
-| 21 | GP16 | SOLENOID_CTRL | to solenoid control (0: pull, 1: release) |
-| 22 | GP17 | CASSETTE_DETECT | from CRP42602Y pin 7 |
-| 24 | GP18 | FUNC_STATUS_SW | from CRP42602Y pin 3 |
-| 25 | GP19 | ROTATION_SENS | from CRP42602Y pin 2 |
+| 4 | GP2 | SOLENOID_CTRL | to solenoid control (0: pull, 1: release) |
+| 5 | GP3 | CASSETTE_DETECT | from CRP42602Y pin 7 |
+| 6 | GP4 | FUNC_STATUS_SW | from CRP42602Y pin 3 |
+| 7 | GP5 | ROTATION_SENS | from CRP42602Y pin 2 |
 
 ## How to build
 * See ["Getting started with Raspberry Pi Pico"](https://datasheets.raspberrypi.org/pico/getting-started-with-pico.pdf)
