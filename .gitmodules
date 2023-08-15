@@ -1,0 +1,3 @@
+[submodule "pico_buttons"]
+	path = pico_buttons
+	url = git@github.com:elehobica/pico_buttons.git
