@@ -22,6 +22,7 @@ add_executable(${PROJECT_NAME}
 # pull in common dependencies
 target_link_libraries(${PROJECT_NAME}
     pico_stdlib
+    pico_multicore
     hardware_pwm
     buttons
 )

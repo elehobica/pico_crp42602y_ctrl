@@ -8,7 +8,9 @@
 #include <cstring>
 
 #include "pico/stdlib.h"
+#include "pico/multicore.h"
 #include "hardware/pwm.h"
+
 #include "Buttons.h"
 #include "crp42602y_ctrl.h"
 
@@ -80,24 +82,24 @@ static bool periodic_func(repeating_timer_t *rt)
     return true; // keep repeating
 }
 
-void stop()
+static void stop()
 {
     crp42602y_ctrl0->send_command(crp42602y_ctrl::STOP_COMMAND);
 }
 
-void playA()
+static void playA()
 {
     crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_A_COMMAND);
     printf("play A\r\n");
 }
 
-void playB()
+static void playB()
 {
     crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_B_COMMAND);
     printf("play B\r\n");
 }
 
-void play(bool nonReverse)
+static void play(bool nonReverse)
 {
     if (crp42602y_ctrl0->is_dir_a() ^ !nonReverse) {
         playA();
@@ -106,16 +108,24 @@ void play(bool nonReverse)
     }
 }
 
-void fwd()
+static void fwd()
 {
     crp42602y_ctrl0->send_command(crp42602y_ctrl::FWD_COMMAND);
     printf("fwd (%s)\r\n", crp42602y_ctrl0->is_dir_a() ? "fwd A" : "rwd B");
 }
 
-void rwd()
+static void rwd()
 {
     crp42602y_ctrl0->send_command(crp42602y_ctrl::RWD_COMMAND);
     printf("rwd (%s)\r\n", crp42602y_ctrl0->is_dir_a() ? "rwd A" : "fwd B");
+}
+
+static void crp42602y_process()
+{
+    stop();
+    while (true) {
+        crp42602y_ctrl0->process_loop();
+    }
 }
 
 int main()
@@ -164,8 +174,11 @@ int main()
 
     printf("CRP42602Y control started\r\n");
 
-    stop();
+    // Core1 runs CRP62602Y process
+    multicore_reset_core1();
+    multicore_launch_core1(crp42602y_process);
 
+    // Core0 handles user interface
     button_event_t btnEvent;
 
     while (true) {
@@ -216,9 +229,6 @@ int main()
                 break;
             }
         }
-
-        // CRP42602Y
-        crp42602y_ctrl0->process_loop();
     }
 
     return 0;
