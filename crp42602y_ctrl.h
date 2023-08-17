@@ -82,6 +82,7 @@ class crp42602y_ctrl {
     bool _playing;
     bool _cueing;
     int _periodic_count;
+    int _rot_stop_ignore_count;
 
     queue_t  _command_queue;
     uint     _pwm_slice_num;

@@ -30,7 +30,8 @@ crp42602y_ctrl::crp42602y_ctrl(
     _reverse_mode(RVS_ONE_ROUND),
     _playing(false),
     _cueing(false),
-    _periodic_count(0)
+    _periodic_count(0),
+    _rot_stop_ignore_count(0)
 {
     queue_init(&_command_queue, sizeof(command_t), COMMAND_QUEUE_LENGTH);
 
@@ -71,7 +72,7 @@ void crp42602y_ctrl::periodic_func_100ms()
     _rot_count_history[0] = rot_count;
 
     // Stop action by reverse mode
-    if (_periodic_count >= num_rot_count_history && _is_gear_in_func() && !rotating) {
+    if (_rot_stop_ignore_count >= num_rot_count_history && _is_gear_in_func() && !rotating) {
         switch (_reverse_mode) {
         case RVS_ONE_WAY:
             send_command(STOP_COMMAND);
@@ -91,8 +92,10 @@ void crp42602y_ctrl::periodic_func_100ms()
             send_command(STOP_COMMAND);
             break;
         }
+        _rot_stop_ignore_count = 0;
     }
 
+    _rot_stop_ignore_count++;
     _periodic_count++;
 }
 
