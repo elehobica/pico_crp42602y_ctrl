@@ -13,7 +13,8 @@ class crp42602y_ctrl {
     private:
     // Definitions
     typedef enum _command_type_t {
-        CMD_TYPE_STOP = 0,
+        CMD_TYPE_NONE = 0,
+        CMD_TYPE_STOP,
         CMD_TYPE_PLAY,
         CMD_TYPE_CUE
     } command_type_t;
@@ -28,7 +29,17 @@ class crp42602y_ctrl {
         direction_t    dir;
     } command_t;
 
+    // Constants
+    static constexpr int COMMAND_QUEUE_LENGTH = 4;
+    static constexpr int PERIODIC_FUNC_MS = 100;
+    static constexpr int ROTATION_SENS_STOP_DETECT_MS = 1000;
+    static constexpr int NUM_COMMAND_HISTORY_REGISTERED = 1;
+    static constexpr int NUM_COMMAND_HISTORY_ISSUED = 2;
+    // Internal command
+    static constexpr command_t VOID_COMMAND = {CMD_TYPE_NONE, DIR_KEEP};
+
     public:
+    // Definitions
     typedef enum _reverse_mode_t {
         RVS_ONE_WAY = 0,
         RVS_ONE_ROUND,
@@ -36,9 +47,6 @@ class crp42602y_ctrl {
     } reverse_mode_t;
 
     // Constants
-    static constexpr int COMMAND_QUEUE_LENGTH = 4;
-    static constexpr int PERIODIC_FUNC_MS = 100;
-    static constexpr int ROTATION_SENS_STOP_DETECT_MS = 1000;
     // User commands
     static constexpr command_t STOP_COMMAND         = {CMD_TYPE_STOP, DIR_KEEP};
     static constexpr command_t PLAY_COMMAND         = {CMD_TYPE_PLAY, DIR_KEEP};
@@ -84,9 +92,11 @@ class crp42602y_ctrl {
     int _periodic_count;
     int _rot_stop_ignore_count;
 
-    queue_t  _command_queue;
-    uint     _pwm_slice_num;
-    uint16_t _rot_count_history[ROTATION_SENS_STOP_DETECT_MS / PERIODIC_FUNC_MS];
+    queue_t   _command_queue;
+    command_t _command_history_registered[NUM_COMMAND_HISTORY_REGISTERED];
+    command_t _command_history_issued[NUM_COMMAND_HISTORY_ISSUED];
+    uint      _pwm_slice_num;
+    uint16_t  _rot_count_history[ROTATION_SENS_STOP_DETECT_MS / PERIODIC_FUNC_MS];
 
     void _pull_solenoid(bool flag);
     bool _is_gear_in_func();

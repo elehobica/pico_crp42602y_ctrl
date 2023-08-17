@@ -84,43 +84,50 @@ static bool periodic_func(repeating_timer_t *rt)
 
 static void stop()
 {
-    printf("stop\r\n");
-    crp42602y_ctrl0->send_command(crp42602y_ctrl::STOP_COMMAND);
+    if (crp42602y_ctrl0->send_command(crp42602y_ctrl::STOP_COMMAND)) {
+        printf("stop\r\n");
+    }
 }
 
 static void playA()
 {
-    printf("play A\r\n");
-    crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_A_COMMAND);
+    if (crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_A_COMMAND)) {
+        printf("play A\r\n");
+    }
 }
 
 static void playB()
 {
-    printf("play B\r\n");
-    crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_B_COMMAND);
+    if (crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_B_COMMAND)) {
+        printf("play B\r\n");
+    }
 }
 
 static void play(bool nonReverse)
 {
     if (nonReverse) {
-        printf("play %c\r\n", crp42602y_ctrl0->is_dir_a() ? 'A' : 'B');
-        crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_COMMAND);
+        if (crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_COMMAND)) {
+            printf("play %c\r\n", crp42602y_ctrl0->is_dir_a() ? 'A' : 'B');
+        }
     } else {
-        printf("play %c\r\n", !crp42602y_ctrl0->is_dir_a() ? 'A' : 'B');  // opposite to current
-        crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_REVERSE_COMMAND);
+        if (crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_REVERSE_COMMAND)) {
+            printf("play %c\r\n", !crp42602y_ctrl0->is_dir_a() ? 'A' : 'B');  // opposite to current
+        }
     }
 }
 
 static void fwd()
 {
-    printf("fwd (%s)\r\n", crp42602y_ctrl0->is_dir_a() ? "fwd A" : "rwd B");
-    crp42602y_ctrl0->send_command(crp42602y_ctrl::FWD_COMMAND);
+    if (crp42602y_ctrl0->send_command(crp42602y_ctrl::FWD_COMMAND)) {
+        printf("fwd (%s)\r\n", crp42602y_ctrl0->is_dir_a() ? "fwd A" : "rwd B");
+    }
 }
 
 static void rwd()
 {
-    printf("rwd (%s)\r\n", crp42602y_ctrl0->is_dir_a() ? "rwd A" : "fwd B");
-    crp42602y_ctrl0->send_command(crp42602y_ctrl::RWD_COMMAND);
+    if (crp42602y_ctrl0->send_command(crp42602y_ctrl::RWD_COMMAND)) {
+        printf("rwd (%s)\r\n", crp42602y_ctrl0->is_dir_a() ? "rwd A" : "fwd B");
+    }
 }
 
 static void crp42602y_process()

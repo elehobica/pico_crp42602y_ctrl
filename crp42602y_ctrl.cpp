@@ -34,6 +34,12 @@ crp42602y_ctrl::crp42602y_ctrl(
     _rot_stop_ignore_count(0)
 {
     queue_init(&_command_queue, sizeof(command_t), COMMAND_QUEUE_LENGTH);
+    for (int i = 0; i < NUM_COMMAND_HISTORY_REGISTERED; i++) {
+        _command_history_registered[i] = VOID_COMMAND;
+    }
+    for (int i = 0; i < NUM_COMMAND_HISTORY_ISSUED; i++) {
+        _command_history_issued[i] = VOID_COMMAND;
+    }
 
     // PWM for _pin_rotation_sens
     gpio_set_function(_pin_rotation_sens, GPIO_FUNC_PWM);
@@ -73,12 +79,16 @@ void crp42602y_ctrl::periodic_func_100ms()
 
     // Stop action by reverse mode
     if (_rot_stop_ignore_count >= num_rot_count_history && _is_gear_in_func() && !rotating) {
+        // reverse if previous command is play, or cue after play in same direction
+        bool reverse_flag = _command_history_issued[0].type == CMD_TYPE_PLAY  ||
+                            (_command_history_issued[0].type == CMD_TYPE_CUE && _command_history_issued[1].type == CMD_TYPE_PLAY &&
+                                (_command_history_issued[0].dir == DIR_FWD) == _head_dir_a);
         switch (_reverse_mode) {
         case RVS_ONE_WAY:
             send_command(STOP_COMMAND);
             break;
         case RVS_ONE_ROUND: {
-            if (_head_dir_a) {
+            if (_head_dir_a && reverse_flag) {
                 send_command(PLAY_REVERSE_COMMAND);
             } else {
                 send_command(STOP_COMMAND);
@@ -86,7 +96,11 @@ void crp42602y_ctrl::periodic_func_100ms()
             break;
         }
         case RVS_INFINITE_ROUND:
-            send_command(PLAY_REVERSE_COMMAND);
+            if (reverse_flag) {
+                send_command(PLAY_REVERSE_COMMAND);
+            } else {
+                send_command(STOP_COMMAND);
+            }
             break;
         default:
             send_command(STOP_COMMAND);
@@ -116,8 +130,17 @@ bool crp42602y_ctrl::is_dir_a()
 
 bool crp42602y_ctrl::send_command(const command_t& command)
 {
+    // Cancel same repeated command except for DIR_REVERSE
+    if (_command_history_registered[0].type == command.type && _command_history_registered[0].dir == command.dir && command.dir != DIR_REVERSE)
+        return false;
+
     if (queue_get_level(&_command_queue) < COMMAND_QUEUE_LENGTH) {
-        return queue_try_add(&_command_queue, &command);
+        bool flag = queue_try_add(&_command_queue, &command);
+        for (int i = NUM_COMMAND_HISTORY_REGISTERED - 1; i >= 1; i--) {
+            _command_history_registered[i] = _command_history_registered[i - 1];
+        }
+        _command_history_registered[0] = command;
+        return flag;
     }
     return false;
 }
@@ -147,6 +170,10 @@ void crp42602y_ctrl::process_loop()
         default:
             break;
         }
+        for (int i = NUM_COMMAND_HISTORY_ISSUED - 1; i >= 1; i--) {
+            _command_history_issued[i] = _command_history_issued[i - 1];
+        }
+        _command_history_issued[0] = command;
     }
 }
 
