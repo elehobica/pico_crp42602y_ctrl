@@ -84,40 +84,43 @@ static bool periodic_func(repeating_timer_t *rt)
 
 static void stop()
 {
+    printf("stop\r\n");
     crp42602y_ctrl0->send_command(crp42602y_ctrl::STOP_COMMAND);
 }
 
 static void playA()
 {
-    crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_A_COMMAND);
     printf("play A\r\n");
+    crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_A_COMMAND);
 }
 
 static void playB()
 {
-    crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_B_COMMAND);
     printf("play B\r\n");
+    crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_B_COMMAND);
 }
 
 static void play(bool nonReverse)
 {
-    if (crp42602y_ctrl0->is_dir_a() ^ !nonReverse) {
-        playA();
+    if (nonReverse) {
+        printf("play %c\r\n", crp42602y_ctrl0->is_dir_a() ? 'A' : 'B');
+        crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_COMMAND);
     } else {
-        playB();
+        printf("play %c\r\n", !crp42602y_ctrl0->is_dir_a() ? 'A' : 'B');  // opposite to current
+        crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_REVERSE_COMMAND);
     }
 }
 
 static void fwd()
 {
-    crp42602y_ctrl0->send_command(crp42602y_ctrl::FWD_COMMAND);
     printf("fwd (%s)\r\n", crp42602y_ctrl0->is_dir_a() ? "fwd A" : "rwd B");
+    crp42602y_ctrl0->send_command(crp42602y_ctrl::FWD_COMMAND);
 }
 
 static void rwd()
 {
-    crp42602y_ctrl0->send_command(crp42602y_ctrl::RWD_COMMAND);
     printf("rwd (%s)\r\n", crp42602y_ctrl0->is_dir_a() ? "rwd A" : "fwd B");
+    crp42602y_ctrl0->send_command(crp42602y_ctrl::RWD_COMMAND);
 }
 
 static void crp42602y_process()

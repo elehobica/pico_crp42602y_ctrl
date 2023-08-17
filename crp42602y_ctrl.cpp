@@ -29,7 +29,8 @@ crp42602y_ctrl::crp42602y_ctrl(
     _has_cassette(false),
     _reverse_mode(RVS_ONE_ROUND),
     _playing(false),
-    _cueing(false)
+    _cueing(false),
+    _periodic_count(0)
 {
     queue_init(&_command_queue, sizeof(command_t), COMMAND_QUEUE_LENGTH);
 
@@ -48,11 +49,12 @@ crp42602y_ctrl::crp42602y_ctrl(
 
 void crp42602y_ctrl::periodic_func_100ms()
 {
-
     _has_cassette = !gpio_get(_pin_cassette_detect);
 
+    // rotation check
+    int num_rot_count_history = sizeof(_rot_count_history) / sizeof(uint16_t);
     uint16_t rot_count = pwm_get_counter(_pwm_slice_num);
-    uint16_t rot_compare = _rot_count_history[sizeof(_rot_count_history) / sizeof(uint16_t) - 1];
+    uint16_t rot_compare = _rot_count_history[num_rot_count_history - 1];
     uint16_t rot_diff;
     if (rot_count < rot_compare) {
         rot_diff = (uint16_t) ((1U << 16) + rot_count - rot_compare);
@@ -61,40 +63,37 @@ void crp42602y_ctrl::periodic_func_100ms()
     }
     bool rotating = rot_diff > 0;
     //printf("pwm counter = %d, rotating = %d\r\n", (int) rot_count, rotating ? 1 : 0);
-    for (int i = sizeof(_rot_count_history) / sizeof(uint16_t) - 1; i >= 1; i--) {
+
+    // shift history
+    for (int i = num_rot_count_history - 1; i >= 1; i--) {
         _rot_count_history[i] = _rot_count_history[i - 1];
     }
     _rot_count_history[0] = rot_count;
 
     // Stop action by reverse mode
-    if (_is_gear_in_func() && !rotating) {
-        command_t command;
+    if (_periodic_count >= num_rot_count_history && _is_gear_in_func() && !rotating) {
         switch (_reverse_mode) {
         case RVS_ONE_WAY:
-            command.type = CMD_TYPE_STOP;
-            command.dir = DIR_KEEP;
+            send_command(STOP_COMMAND);
             break;
         case RVS_ONE_ROUND: {
             if (_head_dir_a) {
-                command.type = CMD_TYPE_PLAY;
-                command.dir = DIR_REVERSE;
+                send_command(PLAY_REVERSE_COMMAND);
             } else {
-                command.type = CMD_TYPE_STOP;
-                command.dir = DIR_KEEP;
+                send_command(STOP_COMMAND);
             }
             break;
         }
         case RVS_INFINITE_ROUND:
-            command.type = CMD_TYPE_PLAY;
-            command.dir = DIR_REVERSE;
+            send_command(PLAY_REVERSE_COMMAND);
             break;
         default:
-            command.type = CMD_TYPE_STOP;
-            command.dir = DIR_KEEP;
+            send_command(STOP_COMMAND);
             break;
         }
-        send_command(command);
     }
+
+    _periodic_count++;
 }
 
 bool crp42602y_ctrl::is_playing()
@@ -199,13 +198,6 @@ void crp42602y_ctrl::_return_sequence()
     sleep_ms(20);  // additional margin
 }
 
-void crp42602y_ctrl::_stop()
-{
-    if (_is_gear_in_func()) {
-        _return_sequence();
-    }
-}
-
 bool crp42602y_ctrl::_get_abs_dir(direction_t dir)
 {
     bool dir_abs;
@@ -229,19 +221,24 @@ bool crp42602y_ctrl::_get_abs_dir(direction_t dir)
     return dir_abs;
 }
 
+void crp42602y_ctrl::_stop()
+{
+    if (_is_gear_in_func()) _return_sequence();
+}
+
 void crp42602y_ctrl::_play(direction_t dir)
 {
-    _head_dir_a = _get_abs_dir(dir);
     if (_is_gear_in_func()) _return_sequence();
     if (!_has_cassette) return;
+    _head_dir_a = _get_abs_dir(dir);
     _func_sequence(_head_dir_a, true, _head_dir_a);
 }
 
 void crp42602y_ctrl::_cue(direction_t dir)
 {
-    bool cue_dir_fwd = _get_abs_dir(dir);
     if (_is_gear_in_func()) _return_sequence();
     if (!_has_cassette) return;
-    // Evacuate head, however the head direction still matters for which side the head is tracing,
+    bool cue_dir_fwd = _get_abs_dir(dir);
+    // Evacuate head, however note that the head direction still matters for which side the head is tracing,
     _func_sequence(_head_dir_a, false, cue_dir_fwd);
 }

@@ -10,7 +10,7 @@
 #include "pico/util/queue.h"
 
 class crp42602y_ctrl {
-    public:
+    private:
     // Definitions
     typedef enum _command_type_t {
         CMD_TYPE_STOP = 0,
@@ -23,26 +23,30 @@ class crp42602y_ctrl {
         DIR_FWD,       // absolute FWD (FWD for side A)
         DIR_RWD        // absolute RWD (FWD for side A)
     } direction_t;
+    typedef struct _command_t {
+        command_type_t type;
+        direction_t    dir;
+    } command_t;
+
+    public:
     typedef enum _reverse_mode_t {
         RVS_ONE_WAY = 0,
         RVS_ONE_ROUND,
         RVS_INFINITE_ROUND
     } reverse_mode_t;
-    typedef struct _command_t {
-        command_type_t type;
-        direction_t    dir;
-    } command_t;
 
     // Constants
     static constexpr int COMMAND_QUEUE_LENGTH = 4;
     static constexpr int PERIODIC_FUNC_MS = 100;
     static constexpr int ROTATION_SENS_STOP_DETECT_MS = 1000;
     // User commands
-    static constexpr command_t STOP_COMMAND   = {CMD_TYPE_STOP, DIR_KEEP};
-    static constexpr command_t PLAY_A_COMMAND = {CMD_TYPE_PLAY, DIR_FWD};
-    static constexpr command_t PLAY_B_COMMAND = {CMD_TYPE_PLAY, DIR_RWD};
-    static constexpr command_t FWD_COMMAND    = {CMD_TYPE_CUE,  DIR_FWD};
-    static constexpr command_t RWD_COMMAND    = {CMD_TYPE_CUE,  DIR_RWD};
+    static constexpr command_t STOP_COMMAND         = {CMD_TYPE_STOP, DIR_KEEP};
+    static constexpr command_t PLAY_COMMAND         = {CMD_TYPE_PLAY, DIR_KEEP};
+    static constexpr command_t PLAY_REVERSE_COMMAND = {CMD_TYPE_PLAY, DIR_REVERSE};
+    static constexpr command_t PLAY_A_COMMAND       = {CMD_TYPE_PLAY, DIR_FWD};
+    static constexpr command_t PLAY_B_COMMAND       = {CMD_TYPE_PLAY, DIR_RWD};
+    static constexpr command_t FWD_COMMAND          = {CMD_TYPE_CUE,  DIR_FWD};
+    static constexpr command_t RWD_COMMAND          = {CMD_TYPE_CUE,  DIR_RWD};
 
     crp42602y_ctrl(
         uint pin_cassette_detect,  // GPIO Input: Cassette detection
@@ -77,6 +81,7 @@ class crp42602y_ctrl {
     reverse_mode_t _reverse_mode;
     bool _playing;
     bool _cueing;
+    int _periodic_count;
 
     queue_t  _command_queue;
     uint     _pwm_slice_num;
@@ -86,8 +91,8 @@ class crp42602y_ctrl {
     bool _is_gear_in_func();
     void _func_sequence(bool head_dir_a, bool lift_head, bool reel_fwd);
     void _return_sequence();
-    void _stop();
     bool _get_abs_dir(direction_t dir);
+    void _stop();
     void _play(direction_t dir);
     void _cue(direction_t dir);
 };
