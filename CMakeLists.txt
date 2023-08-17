@@ -16,6 +16,7 @@ add_subdirectory(pico_buttons buttons)
 
 add_executable(${PROJECT_NAME}
     main.cpp
+    crp42602y_ctrl.cpp
 )
 
 # pull in common dependencies

@@ -10,12 +10,13 @@
 #include "pico/stdlib.h"
 #include "hardware/pwm.h"
 #include "Buttons.h"
+#include "crp42602y_ctrl.h"
 
 static constexpr uint PIN_LED             = PICO_DEFAULT_LED_PIN;
 // CRP42602Y Control Pins
 static constexpr uint PIN_SOLENOID_CTRL   = 2;
 static constexpr uint PIN_CASSETTE_DETECT = 3;
-static constexpr uint PIN_FUNC_STATUS_SW  = 4;
+static constexpr uint PIN_GEAR_STATUS_SW  = 4;
 static constexpr uint PIN_ROTATION_SENS   = 5;  // This needs to be PWM_B pin
 // Buttons
 static constexpr uint PIN_DOWN_BUTTON   = 18;
@@ -33,9 +34,9 @@ volatile static bool rotating = false;
 // ADC Timer & frequency
 static repeating_timer_t timer;
 static constexpr int INTERVAL_MS_BUTTONS_CHECK = 50;
-static constexpr int INTERVAL_MS_ROTATION_SENS_CHECK = 1000;  // > INTERVAL_MS_BUTTONS_CHECK
+static constexpr int INTERVAL_MS_CRP4260Y_CTRL_FUNC = 100;  // > INTERVAL_MS_BUTTONS_CHECK
 
-static uint32_t scanCnt = 0;
+static uint32_t count = 0;
 static uint32_t t = 0;
 
 static button_t btns_5way_tactile_plus2[] = {
@@ -49,8 +50,7 @@ static button_t btns_5way_tactile_plus2[] = {
 };
 
 Buttons* buttons = nullptr;
-
-static bool _playDirA = true;
+crp42602y_ctrl *crp42602y_ctrl0 = nullptr;
 
 static inline uint64_t _micros(void)
 {
@@ -62,131 +62,44 @@ static inline uint32_t _millis(void)
     return to_ms_since_boot(get_absolute_time());
 }
 
-static bool tcRotationSensCheck(repeating_timer_t *rt) {
-    gpio_put(PIN_LED, !gpio_get(PIN_LED));
-    uint16_t rotCount = pwm_get_counter(pwmSliceNum);
-    uint16_t rotDiff;
-    if (rotCount < prevRotCount) {
-        rotDiff = (uint16_t) ((1U<<16) + rotCount - prevRotCount);
-    } else {
-        rotDiff = rotCount - prevRotCount;
-    }
-    rotating = rotDiff > 0;
-    //printf("pwm counter = %d, rotating = %d\r\n", (int) rotCount, rotating ? 1 : 0);
-    prevRotCount = rotCount;
-    return true; // keep repeating
-}
-
-static bool scanButtons(repeating_timer_t *rt) {
+static bool periodic_func(repeating_timer_t *rt)
+{
     if (buttons != nullptr) {
-        uint64_t t0 = _micros();
+        //uint64_t t0 = _micros();
         buttons->scan_periodic();
-        t = (uint32_t) (_micros() - t0);
+        //t = (uint32_t) (_micros() - t0);
     }
-
-    if (scanCnt % (INTERVAL_MS_ROTATION_SENS_CHECK / INTERVAL_MS_BUTTONS_CHECK) == 0) {
-        tcRotationSensCheck(rt);
+    if (count % (INTERVAL_MS_CRP4260Y_CTRL_FUNC / INTERVAL_MS_BUTTONS_CHECK) == 0) {
+        if (crp42602y_ctrl0 != nullptr) {
+            //uint64_t t0 = _micros();
+            crp42602y_ctrl0->periodic_func_100ms();
+            //t = (uint32_t) (_micros() - t0);
+        }
     }
-
-    scanCnt++;
+    count++;
     return true; // keep repeating
-}
-
-void ctrlSolenoid(bool flag)
-{
-    if (flag) {
-        gpio_put(PIN_SOLENOID_CTRL, 0);
-    } else {
-        gpio_put(PIN_SOLENOID_CTRL, 1);
-    }
-}
-
-bool isGearInFunc()
-{
-    return !gpio_get(PIN_FUNC_STATUS_SW);
-}
-
-bool hasCassette()
-{
-    return !gpio_get(PIN_CASSETTE_DETECT);
-}
-
-void funcSequence(bool pinchDirA, bool headPosPlay, bool reelFwd)
-{
-    // Function sequence has 190 degree of function gear to roll in 400 ms
-    // Timing definitions (milliseconds) (All values are set experimentally)
-    constexpr uint32_t tInitS    = 0;          // Unhook the function gear
-    constexpr uint32_t tInitE    = 20;
-    constexpr uint32_t tPinchS   = tInitE;     // Term to determine pinch roller and head direction
-    constexpr uint32_t tPinchE   = 100;
-    constexpr uint32_t tHeadPosS = 150;        // Term to determine head play / evacuate position
-    constexpr uint32_t tHeadPosE = 300;
-    constexpr uint32_t tReelS    = tHeadPosE;  // Term to determine reel direction
-    constexpr uint32_t tReelE    = 400;
-
-    // Be careful about the consistency of pinch roller direction and reel direction,
-    //  otherwise they could pull to opposite directions and give unexpected extension stress to the tape
-
-    ctrlSolenoid(true);
-    sleep_ms(tInitE);
-    ctrlSolenoid(!pinchDirA);
-    sleep_ms(tPinchE - tInitE);
-    ctrlSolenoid(false);
-    sleep_ms(tHeadPosS - tPinchE);
-    ctrlSolenoid(headPosPlay);
-    sleep_ms(tHeadPosE - tHeadPosS);
-    ctrlSolenoid(reelFwd);
-    sleep_ms(tReelE - tHeadPosE);
-    ctrlSolenoid(false);
-}
-
-void returnSequence()
-{
-    // Return sequence has (360 - 190) degree of function gear,
-    //  which is needed to take another function when the gear is already in function position
-    //  it is supposed to take 360 ms
-    ctrlSolenoid(true);
-    sleep_ms(20);
-    ctrlSolenoid(false);
-    sleep_ms(340);
-    sleep_ms(20);  // additional margin
 }
 
 void stop()
 {
-    if (isGearInFunc()) {
-        printf("stop\r\n");
-        returnSequence();
-    }
+    crp42602y_ctrl0->send_command(crp42602y_ctrl::STOP_COMMAND);
 }
 
 void playA()
 {
-    if (isGearInFunc()) returnSequence();
-    if (!hasCassette()) {
-        printf("no cassette\r\n");
-        return;
-    }
+    crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_A_COMMAND);
     printf("play A\r\n");
-    funcSequence(true, true, true);
-    _playDirA = true;
 }
 
 void playB()
 {
-    if (isGearInFunc()) returnSequence();
-    if (!hasCassette()) {
-        printf("no cassette\r\n");
-        return;
-    }
+    crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_B_COMMAND);
     printf("play B\r\n");
-    funcSequence(false, true, false);
-    _playDirA = false;
 }
 
 void play(bool nonReverse)
 {
-    if (_playDirA ^ !nonReverse) {
+    if (crp42602y_ctrl0->is_dir_a() ^ !nonReverse) {
         playA();
     } else {
         playB();
@@ -195,28 +108,14 @@ void play(bool nonReverse)
 
 void fwd()
 {
-    // Evacuate head, however the head direction still matters for which side the head is tracing,
-    //  therefore, previous head direction is preserved and it may mean fwd A or rwd B
-    if (isGearInFunc()) returnSequence();
-    if (!hasCassette()) {
-        printf("no cassette\r\n");
-        return;
-    }
-    printf("fwd (%s)\r\n", _playDirA ? "fwd A" : "rwd B");
-    funcSequence(_playDirA, false, true);
+    crp42602y_ctrl0->send_command(crp42602y_ctrl::FWD_COMMAND);
+    printf("fwd (%s)\r\n", crp42602y_ctrl0->is_dir_a() ? "fwd A" : "rwd B");
 }
 
 void rwd()
 {
-    // Evacuate head, however the head direction still matters for which side the head is tracing,
-    //  therefore, previous head direction is preserved and it may mean rwd A or fwd B
-    if (isGearInFunc()) returnSequence();
-    if (!hasCassette()) {
-        printf("no cassette\r\n");
-        return;
-    }
-    printf("rwd (%s)\r\n", _playDirA ? "rwd A" : "fwd B");
-    funcSequence(_playDirA, false, false);
+    crp42602y_ctrl0->send_command(crp42602y_ctrl::RWD_COMMAND);
+    printf("rwd (%s)\r\n", crp42602y_ctrl0->is_dir_a() ? "rwd A" : "fwd B");
 }
 
 int main()
@@ -228,18 +127,22 @@ int main()
     gpio_set_dir(PIN_LED, GPIO_OUT);
     gpio_put(PIN_LED, 0);
 
-    gpio_init(PIN_SOLENOID_CTRL);
-    gpio_put(PIN_SOLENOID_CTRL, 1);  // set default = 1 before output mode
-    gpio_set_dir(PIN_SOLENOID_CTRL, GPIO_OUT);
-
+    // CRP42602Y pins
     gpio_init(PIN_CASSETTE_DETECT);
     gpio_set_dir(PIN_CASSETTE_DETECT, GPIO_IN);
     gpio_pull_up(PIN_CASSETTE_DETECT);
 
-    gpio_init(PIN_FUNC_STATUS_SW);
-    gpio_set_dir(PIN_FUNC_STATUS_SW, GPIO_IN);
-    gpio_pull_up(PIN_FUNC_STATUS_SW);
+    gpio_init(PIN_GEAR_STATUS_SW);
+    gpio_set_dir(PIN_GEAR_STATUS_SW, GPIO_IN);
+    gpio_pull_up(PIN_GEAR_STATUS_SW);
 
+    gpio_pull_up(PIN_ROTATION_SENS);
+
+    gpio_init(PIN_SOLENOID_CTRL);
+    gpio_put(PIN_SOLENOID_CTRL, 1);  // set default = 1 before output mode
+    gpio_set_dir(PIN_SOLENOID_CTRL, GPIO_OUT);
+
+    // Pins for Buttons
     for (int i = 0; i < sizeof(btns_5way_tactile_plus2) / sizeof(button_t); i++) {
         button_t* button = &btns_5way_tactile_plus2[i];
         gpio_init(button->pin);
@@ -247,19 +150,14 @@ int main()
         gpio_pull_up(button->pin);
     }
 
+    // Buttons
     buttons = new Buttons(btns_5way_tactile_plus2, sizeof(btns_5way_tactile_plus2) / sizeof(button_t));
 
-    // PWM settings
-    gpio_pull_up(PIN_ROTATION_SENS);
-    gpio_set_function(PIN_ROTATION_SENS, GPIO_FUNC_PWM);
-    pwmSliceNum = pwm_gpio_to_slice_num(PIN_ROTATION_SENS);
-    pwm_config pwmConfig = pwm_get_default_config();
-    pwm_config_set_clkdiv_mode(&pwmConfig, PWM_DIV_B_RISING);
-    pwm_config_set_clkdiv_int(&pwmConfig, 1);
-    pwm_init(pwmSliceNum, &pwmConfig, true);
+    // CRP42602Y_CTRL
+    crp42602y_ctrl0 = new crp42602y_ctrl(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL);
 
     // negative timeout means exact delay (rather than delay between callbacks)
-    if (!add_repeating_timer_us(-INTERVAL_MS_BUTTONS_CHECK * 1000, scanButtons, nullptr, &timer)) {
+    if (!add_repeating_timer_us(-INTERVAL_MS_BUTTONS_CHECK * 1000, periodic_func, nullptr, &timer)) {
         printf("Failed to add timer\n");
         return 0;
     }
@@ -290,7 +188,7 @@ int main()
                 } else {
                     //printf("%s: 1\r\n", btnEvent.button_name);
                     if (strncmp(btnEvent.button_name, "center", 6) == 0) {
-                        if (isGearInFunc()) {
+                        if (crp42602y_ctrl0->is_playing() || crp42602y_ctrl0->is_cueing()) {
                             stop();
                         } else {
                             play(true);
@@ -319,10 +217,8 @@ int main()
             }
         }
 
-        // Stop detection
-        if (isGearInFunc() && !rotating) {
-            stop();
-        }
+        // CRP42602Y
+        crp42602y_ctrl0->process_loop();
     }
 
     return 0;
