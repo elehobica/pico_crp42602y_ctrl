@@ -17,7 +17,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     uint pin_rec_a_sw,
     uint pin_rec_b_sw,
     uint pin_type2_sw
-    ) :
+) :
     _pin_cassette_detect(pin_cassette_detect),
     _pin_gear_status_sw(pin_gear_status_sw),
     _pin_rotation_sens(pin_rotation_sens),
@@ -95,13 +95,14 @@ void crp42602y_ctrl::periodic_func_100ms()
             }
             break;
         }
-        case RVS_INFINITE_ROUND:
+        case RVS_INFINITE_ROUND: {
             if (reverse_flag) {
                 send_command(PLAY_REVERSE_COMMAND);
             } else {
                 send_command(STOP_COMMAND);
             }
             break;
+        }
         default:
             send_command(STOP_COMMAND);
             break;

@@ -105,28 +105,31 @@ static void playB()
 
 static void play(bool nonReverse)
 {
+    bool is_dir_a = crp42602y_ctrl0->is_dir_a();
     if (nonReverse) {
         if (crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_COMMAND)) {
-            printf("play %c\r\n", crp42602y_ctrl0->is_dir_a() ? 'A' : 'B');
+            printf("play %c\r\n", is_dir_a ? 'A' : 'B');
         }
     } else {
         if (crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_REVERSE_COMMAND)) {
-            printf("play %c\r\n", !crp42602y_ctrl0->is_dir_a() ? 'A' : 'B');  // opposite to current
+            printf("play %c\r\n", !is_dir_a ? 'A' : 'B');  // opposite to current
         }
     }
 }
 
 static void fwd()
 {
+    bool is_dir_a = crp42602y_ctrl0->is_dir_a();
     if (crp42602y_ctrl0->send_command(crp42602y_ctrl::FWD_COMMAND)) {
-        printf("fwd (%s)\r\n", crp42602y_ctrl0->is_dir_a() ? "fwd A" : "rwd B");
+        printf("fwd (%s)\r\n", is_dir_a ? "fwd A" : "rwd B");
     }
 }
 
 static void rwd()
 {
+    bool is_dir_a = crp42602y_ctrl0->is_dir_a();
     if (crp42602y_ctrl0->send_command(crp42602y_ctrl::RWD_COMMAND)) {
-        printf("rwd (%s)\r\n", crp42602y_ctrl0->is_dir_a() ? "rwd A" : "fwd B");
+        printf("rwd (%s)\r\n", is_dir_a ? "rwd A" : "fwd B");
     }
 }
 
