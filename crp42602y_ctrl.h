@@ -36,7 +36,8 @@ class crp42602y_ctrl {
     static constexpr int NUM_COMMAND_HISTORY_REGISTERED = 1;
     static constexpr int NUM_COMMAND_HISTORY_ISSUED = 2;
     // Internal command
-    static constexpr command_t VOID_COMMAND = {CMD_TYPE_NONE, DIR_KEEP};
+    static constexpr command_t VOID_COMMAND         = {CMD_TYPE_NONE, DIR_KEEP};
+    static constexpr command_t STOP_REVERSE_COMMAND = {CMD_TYPE_STOP, DIR_REVERSE};
 
     public:
     // Definitions

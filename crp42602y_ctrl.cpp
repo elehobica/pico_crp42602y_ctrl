@@ -125,9 +125,14 @@ void crp42602y_ctrl::periodic_func_100ms()
             _invoke_callback(ON_STOP);
             break;
         case RVS_ONE_ROUND:
-            if (_head_dir_a && reverse_flag) {
-                send_command(PLAY_REVERSE_COMMAND);
-                _invoke_callback(ON_REVERSE);
+            if (reverse_flag) {
+                if (_head_dir_a) {
+                    send_command(PLAY_REVERSE_COMMAND);
+                    _invoke_callback(ON_REVERSE);
+                } else {
+                    send_command(STOP_REVERSE_COMMAND);
+                    _invoke_callback(ON_STOP);
+                }
             } else {
                 send_command(STOP_COMMAND);
                 _invoke_callback(ON_STOP);
@@ -207,6 +212,7 @@ void crp42602y_ctrl::process_loop()
             _stop();
             _playing = false;
             _cueing = false;
+            if (command.dir == DIR_REVERSE) _head_dir_a = !_head_dir_a;
             break;
         case CMD_TYPE_PLAY:
             _play(command.dir);
