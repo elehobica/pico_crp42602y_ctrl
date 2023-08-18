@@ -71,6 +71,10 @@ void crp42602y_ctrl::periodic_func_100ms()
         _invoke_callback(ON_CASSETTE_SET);
     } else if (_prev_has_cussette && !_has_cassette) {
         _invoke_callback(ON_CASSETTE_EJECT);
+        if (_is_gear_in_func()) {
+            send_command(STOP_COMMAND);
+            _invoke_callback(ON_STOP);
+        }
     }
     _prev_has_cussette = _has_cassette;
 
