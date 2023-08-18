@@ -61,15 +61,31 @@ void crp42602y_ctrl::periodic_func_100ms()
     // rotation check
     int num_rot_count_history = sizeof(_rot_count_history) / sizeof(uint16_t);
     uint16_t rot_count = pwm_get_counter(_pwm_slice_num);
-    uint16_t rot_compare = _rot_count_history[num_rot_count_history - 1];
-    uint16_t rot_diff;
-    if (rot_count < rot_compare) {
-        rot_diff = (uint16_t) ((1U << 16) + rot_count - rot_compare);
+    bool rotating = true;
+
+    if (!_is_gear_in_func()) {
+        _rot_stop_ignore_count = 0;
     } else {
-        rot_diff = rot_count - rot_compare;
+        // loop for early rotation stop detection when cueing
+        int rot_compare_idx = num_rot_count_history - 1;
+        while (true) {
+            uint16_t rot_compare = _rot_count_history[rot_compare_idx];
+            uint16_t rot_diff;
+            if (rot_count < rot_compare) {
+                rot_diff = (uint16_t) ((1U << 16) + rot_count - rot_compare);
+            } else {
+                rot_diff = rot_count - rot_compare;
+            }
+            //printf("pwm counter = %d, idx = %d, diff = %d, rotating = %s\r\n", (int) rot_count, rot_compare_idx, rot_diff, rotating ? "true" : "false");
+            if (rot_diff == 0) {
+                rotating = false;
+                break;
+            } else if (rot_diff < 4 || rot_compare_idx == 1) {
+                break;
+            }
+            rot_compare_idx /= 2;
+        }
     }
-    bool rotating = rot_diff > 0;
-    //printf("pwm counter = %d, rotating = %d\r\n", (int) rot_count, rotating ? 1 : 0);
 
     // shift history
     for (int i = num_rot_count_history - 1; i >= 1; i--) {
@@ -78,7 +94,7 @@ void crp42602y_ctrl::periodic_func_100ms()
     _rot_count_history[0] = rot_count;
 
     // Stop action by reverse mode
-    if (_rot_stop_ignore_count >= num_rot_count_history && _is_gear_in_func() && !rotating) {
+    if (_rot_stop_ignore_count >= num_rot_count_history && !rotating) {
         // reverse if previous command is play, or cue after play in same direction
         bool reverse_flag = _command_history_issued[0].type == CMD_TYPE_PLAY  ||
                             (_command_history_issued[0].type == CMD_TYPE_CUE && _command_history_issued[1].type == CMD_TYPE_PLAY &&
@@ -87,27 +103,24 @@ void crp42602y_ctrl::periodic_func_100ms()
         case RVS_ONE_WAY:
             send_command(STOP_COMMAND);
             break;
-        case RVS_ONE_ROUND: {
+        case RVS_ONE_ROUND:
             if (_head_dir_a && reverse_flag) {
                 send_command(PLAY_REVERSE_COMMAND);
             } else {
                 send_command(STOP_COMMAND);
             }
             break;
-        }
-        case RVS_INFINITE_ROUND: {
+        case RVS_INFINITE_ROUND:
             if (reverse_flag) {
                 send_command(PLAY_REVERSE_COMMAND);
             } else {
                 send_command(STOP_COMMAND);
             }
             break;
-        }
         default:
             send_command(STOP_COMMAND);
             break;
         }
-        _rot_stop_ignore_count = 0;
     }
 
     _rot_stop_ignore_count++;
@@ -190,7 +203,7 @@ bool crp42602y_ctrl::_is_gear_in_func()
 
 void crp42602y_ctrl::_func_sequence(bool head_dir_a, bool lift_head, bool reel_fwd)
 {
-    // Function sequence has 190 degree of function gear to roll in 400 ms
+    // Function sequence has 190 degree of function gear to rotate in 400 ms
     // Timing definitions (milliseconds) (All values are set experimentally)
     constexpr uint32_t tInitS     = 0;           // Unhook the function gear
     constexpr uint32_t tInitE     = 20;
