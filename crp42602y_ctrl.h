@@ -67,9 +67,9 @@ class crp42602y_ctrl {
         );
     virtual ~crp42602y_ctrl() {};
     void periodic_func_100ms();
-    bool is_playing();
-    bool is_cueing();
-    bool is_dir_a();
+    bool is_playing() const;
+    bool is_cueing() const;
+    bool is_dir_a() const;
     bool send_command(const command_t& command);
     void process_loop();
 
@@ -91,6 +91,11 @@ class crp42602y_ctrl {
     bool _cueing;
     int _periodic_count;
     int _rot_stop_ignore_count;
+    bool _has_cur_gear_status;
+    bool _cur_head_dir_a;
+    bool _cur_lift_head;
+    bool _cur_reel_fwd;
+
 
     queue_t   _command_queue;
     command_t _command_history_registered[NUM_COMMAND_HISTORY_REGISTERED];
@@ -98,12 +103,14 @@ class crp42602y_ctrl {
     uint      _pwm_slice_num;
     uint16_t  _rot_count_history[ROTATION_SENS_STOP_DETECT_MS / PERIODIC_FUNC_MS];
 
-    void _pull_solenoid(bool flag);
-    bool _is_gear_in_func();
-    void _func_sequence(bool head_dir_a, bool lift_head, bool reel_fwd);
-    void _return_sequence();
-    bool _get_abs_dir(direction_t dir);
-    void _stop();
-    void _play(direction_t dir);
-    void _cue(direction_t dir);
+    void _pull_solenoid(const bool flag) const;
+    bool _is_gear_in_func() const;
+    void _store_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
+    bool _equal_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd) const;
+    void _func_sequence(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
+    void _return_sequence() const;
+    bool _get_abs_dir(const direction_t dir) const;
+    void _stop() const;
+    void _play(const direction_t dir);
+    void _cue(const direction_t dir);
 };

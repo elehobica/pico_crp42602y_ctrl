@@ -31,7 +31,11 @@ crp42602y_ctrl::crp42602y_ctrl(
     _playing(false),
     _cueing(false),
     _periodic_count(0),
-    _rot_stop_ignore_count(0)
+    _rot_stop_ignore_count(0),
+    _has_cur_gear_status(false),
+    _cur_head_dir_a(false),
+    _cur_lift_head(false),
+    _cur_reel_fwd(false)
 {
     queue_init(&_command_queue, sizeof(command_t), COMMAND_QUEUE_LENGTH);
     for (int i = 0; i < NUM_COMMAND_HISTORY_REGISTERED; i++) {
@@ -127,17 +131,17 @@ void crp42602y_ctrl::periodic_func_100ms()
     _periodic_count++;
 }
 
-bool crp42602y_ctrl::is_playing()
+bool crp42602y_ctrl::is_playing() const
 {
     return _playing;
 }
 
-bool crp42602y_ctrl::is_cueing()
+bool crp42602y_ctrl::is_cueing() const
 {
     return _cueing;
 }
 
-bool crp42602y_ctrl::is_dir_a()
+bool crp42602y_ctrl::is_dir_a() const
 {
     return _head_dir_a;
 }
@@ -191,17 +195,31 @@ void crp42602y_ctrl::process_loop()
     }
 }
 
-void crp42602y_ctrl::_pull_solenoid(bool flag)
+void crp42602y_ctrl::_pull_solenoid(const bool flag) const
 {
     gpio_put(_pin_solenoid_ctrl, !flag);
 }
 
-bool crp42602y_ctrl::_is_gear_in_func()
+bool crp42602y_ctrl::_is_gear_in_func() const
 {
     return !gpio_get(_pin_gear_status_sw);
 }
 
-void crp42602y_ctrl::_func_sequence(bool head_dir_a, bool lift_head, bool reel_fwd)
+void crp42602y_ctrl::_store_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd)
+{
+    _has_cur_gear_status = true;
+    _cur_head_dir_a = head_dir_a;
+    _cur_lift_head = lift_head;
+    _cur_reel_fwd = reel_fwd;
+}
+
+bool crp42602y_ctrl::_equal_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd) const
+{
+    return _has_cur_gear_status == true &&
+        _cur_head_dir_a == head_dir_a && _cur_lift_head == lift_head && _cur_reel_fwd == reel_fwd;
+}
+
+void crp42602y_ctrl::_func_sequence(const bool head_dir_a, const bool lift_head, const bool reel_fwd)
 {
     // Function sequence has 190 degree of function gear to rotate in 400 ms
     // Timing definitions (milliseconds) (All values are set experimentally)
@@ -228,9 +246,11 @@ void crp42602y_ctrl::_func_sequence(bool head_dir_a, bool lift_head, bool reel_f
     _pull_solenoid(reel_fwd);
     sleep_ms(tReelE - tLiftHeadE);
     _pull_solenoid(false);
+
+    _store_gear_status(head_dir_a, lift_head, reel_fwd);
 }
 
-void crp42602y_ctrl::_return_sequence()
+void crp42602y_ctrl::_return_sequence() const
 {
     // Return sequence has (360 - 190) degree of function gear,
     //  which is needed to take another function when the gear is already in function position
@@ -242,7 +262,7 @@ void crp42602y_ctrl::_return_sequence()
     sleep_ms(20);  // additional margin
 }
 
-bool crp42602y_ctrl::_get_abs_dir(direction_t dir)
+bool crp42602y_ctrl::_get_abs_dir(direction_t dir) const
 {
     bool dir_abs;
     switch(dir) {
@@ -265,24 +285,30 @@ bool crp42602y_ctrl::_get_abs_dir(direction_t dir)
     return dir_abs;
 }
 
-void crp42602y_ctrl::_stop()
+void crp42602y_ctrl::_stop() const
 {
     if (_is_gear_in_func()) _return_sequence();
 }
 
 void crp42602y_ctrl::_play(direction_t dir)
 {
-    if (_is_gear_in_func()) _return_sequence();
-    if (!_has_cassette) return;
     _head_dir_a = _get_abs_dir(dir);
+    if (_is_gear_in_func()) {
+        if (_equal_gear_status(_head_dir_a, true, _head_dir_a)) return;
+        _return_sequence();
+    }
+    if (!_has_cassette) return;
     _func_sequence(_head_dir_a, true, _head_dir_a);
 }
 
 void crp42602y_ctrl::_cue(direction_t dir)
 {
-    if (_is_gear_in_func()) _return_sequence();
-    if (!_has_cassette) return;
     bool cue_dir_fwd = _get_abs_dir(dir);
+    if (_is_gear_in_func()) {
+        if (_equal_gear_status(_head_dir_a, false, cue_dir_fwd)) return;
+        _return_sequence();
+    }
+    if (!_has_cassette) return;
     // Evacuate head, however note that the head direction still matters for which side the head is tracing,
     _func_sequence(_head_dir_a, false, cue_dir_fwd);
 }
