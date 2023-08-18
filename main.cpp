@@ -141,6 +141,29 @@ static void crp42602y_process()
     }
 }
 
+void crp42602y_ctrl_callback(const crp42602y_ctrl::callback_type_t callback_type)
+{
+    switch (callback_type) {
+    case crp42602y_ctrl::ON_GEAR_ERROR:
+        printf("gear error\r\n");
+        break;
+    case crp42602y_ctrl::ON_CASSETTE_SET:
+        printf("cassette set\r\n");
+        break;
+    case crp42602y_ctrl::ON_CASSETTE_EJECT:
+        printf("cassette eject\r\n");
+        break;
+    case crp42602y_ctrl::ON_STOP:
+        printf("stopped\r\n");
+        break;
+    case crp42602y_ctrl::ON_REVERSE:
+        printf("reversed\r\n");
+        break;
+    default:
+        break;
+    }
+}
+
 int main()
 {
     stdio_init_all();
@@ -178,6 +201,7 @@ int main()
 
     // CRP42602Y_CTRL
     crp42602y_ctrl0 = new crp42602y_ctrl(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL);
+    crp42602y_ctrl0->register_callback_all(crp42602y_ctrl_callback);
 
     // negative timeout means exact delay (rather than delay between callbacks)
     if (!add_repeating_timer_us(-INTERVAL_MS_BUTTONS_CHECK * 1000, periodic_func, nullptr, &timer)) {

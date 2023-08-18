@@ -56,11 +56,23 @@ crp42602y_ctrl::crp42602y_ctrl(
     for (int i = 0; i < sizeof(_rot_count_history) / sizeof(uint16_t); i++) {
         _rot_count_history[i] = 0;
     }
+
+    for (int i = 0; i < __NUM_CALLBACKS__; i++) {
+        _callbacks[i] = nullptr;
+    }
 }
 
 void crp42602y_ctrl::periodic_func_100ms()
 {
+    static bool _prev_has_cussette = false;
     _has_cassette = !gpio_get(_pin_cassette_detect);
+
+    if (!_prev_has_cussette && _has_cassette) {
+        _invoke_callback(ON_CASSETTE_SET);
+    } else if (_prev_has_cussette && !_has_cassette) {
+        _invoke_callback(ON_CASSETTE_EJECT);
+    }
+    _prev_has_cussette = _has_cassette;
 
     // rotation check
     int num_rot_count_history = sizeof(_rot_count_history) / sizeof(uint16_t);
@@ -106,25 +118,32 @@ void crp42602y_ctrl::periodic_func_100ms()
         switch (_reverse_mode) {
         case RVS_ONE_WAY:
             send_command(STOP_COMMAND);
+            _invoke_callback(ON_STOP);
             break;
         case RVS_ONE_ROUND:
             if (_head_dir_a && reverse_flag) {
                 send_command(PLAY_REVERSE_COMMAND);
+                _invoke_callback(ON_REVERSE);
             } else {
                 send_command(STOP_COMMAND);
+                _invoke_callback(ON_STOP);
             }
             break;
         case RVS_INFINITE_ROUND:
             if (reverse_flag) {
                 send_command(PLAY_REVERSE_COMMAND);
+                _invoke_callback(ON_REVERSE);
             } else {
                 send_command(STOP_COMMAND);
+                _invoke_callback(ON_STOP);
             }
             break;
         default:
             send_command(STOP_COMMAND);
+            _invoke_callback(ON_STOP);
             break;
         }
+        _rot_stop_ignore_count = 0;
     }
 
     _rot_stop_ignore_count++;
@@ -195,6 +214,24 @@ void crp42602y_ctrl::process_loop()
     }
 }
 
+void crp42602y_ctrl::register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type))
+{
+    _callbacks[callback_type] = func;
+}
+
+void crp42602y_ctrl::register_callback_all(void (*func)(const callback_type_t callback_type))
+{
+    for (int i = 0; i < __NUM_CALLBACKS__; i++) {
+        register_callback((const callback_type_t) i, func);
+    }
+}
+
+void crp42602y_ctrl::_invoke_callback(const callback_type_t callback_type) const
+{
+    if (_callbacks[callback_type] == nullptr) return;
+    _callbacks[callback_type](callback_type);
+}
+
 void crp42602y_ctrl::_pull_solenoid(const bool flag) const
 {
     gpio_put(_pin_solenoid_ctrl, !flag);
@@ -247,7 +284,11 @@ void crp42602y_ctrl::_func_sequence(const bool head_dir_a, const bool lift_head,
     sleep_ms(tReelE - tLiftHeadE);
     _pull_solenoid(false);
 
-    _store_gear_status(head_dir_a, lift_head, reel_fwd);
+    if (_is_gear_in_func()) {
+        _store_gear_status(head_dir_a, lift_head, reel_fwd);
+    } else {
+        _invoke_callback(ON_GEAR_ERROR);
+    }
 }
 
 void crp42602y_ctrl::_return_sequence() const
@@ -260,6 +301,10 @@ void crp42602y_ctrl::_return_sequence() const
     _pull_solenoid(false);
     sleep_ms(340);
     sleep_ms(20);  // additional margin
+
+    if (_is_gear_in_func()) {
+        _invoke_callback(ON_GEAR_ERROR);
+    }
 }
 
 bool crp42602y_ctrl::_get_abs_dir(direction_t dir) const

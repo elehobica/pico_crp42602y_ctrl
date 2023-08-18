@@ -45,6 +45,14 @@ class crp42602y_ctrl {
         RVS_ONE_ROUND,
         RVS_INFINITE_ROUND
     } reverse_mode_t;
+    typedef enum _callback_type_t {
+        ON_GEAR_ERROR = 0,
+        ON_CASSETTE_SET,
+        ON_CASSETTE_EJECT,
+        ON_STOP,
+        ON_REVERSE,
+        __NUM_CALLBACKS__
+    } callback_type_t;
 
     // Constants
     // User commands
@@ -72,6 +80,8 @@ class crp42602y_ctrl {
     bool is_dir_a() const;
     bool send_command(const command_t& command);
     void process_loop();
+    void register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type));
+    void register_callback_all(void (*func)(const callback_type_t callback_type));
 
     private:
     uint _pin_cassette_detect;
@@ -96,13 +106,14 @@ class crp42602y_ctrl {
     bool _cur_lift_head;
     bool _cur_reel_fwd;
 
-
     queue_t   _command_queue;
     command_t _command_history_registered[NUM_COMMAND_HISTORY_REGISTERED];
     command_t _command_history_issued[NUM_COMMAND_HISTORY_ISSUED];
     uint      _pwm_slice_num;
     uint16_t  _rot_count_history[ROTATION_SENS_STOP_DETECT_MS / PERIODIC_FUNC_MS];
+    void (*_callbacks[__NUM_CALLBACKS__])(const callback_type_t callback_type);
 
+    void _invoke_callback(const callback_type_t callback_type) const;
     void _pull_solenoid(const bool flag) const;
     bool _is_gear_in_func() const;
     void _store_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
