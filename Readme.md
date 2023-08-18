@@ -22,8 +22,8 @@
 | Pico Pin # | Pin Name | Function | Connection |
 ----|----|----|----
 | 23 | GND | GND | COM |
-| 24 | GP18 | GPIO Input | DOWN |
-| 25 | GP19 | GPIO Input | UP |
+| 24 | GP18 | GPIO Input | UP |
+| 25 | GP19 | GPIO Input | DOWN |
 | 26 | GP20 | GPIO Input | LEFT |
 | 27 | GP21 | GPIO Input | RIGHT |
 | 29 | GP22 | GPIO Input | CENTER |

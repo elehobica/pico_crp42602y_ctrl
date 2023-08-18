@@ -165,6 +165,16 @@ bool crp42602y_ctrl::is_dir_a() const
     return _head_dir_a;
 }
 
+void crp42602y_ctrl::set_reverse_mode(const reverse_mode_t mode)
+{
+    _reverse_mode = mode;
+}
+
+crp42602y_ctrl::reverse_mode_t crp42602y_ctrl::get_reverse_mode() const
+{
+    return _reverse_mode;
+}
+
 bool crp42602y_ctrl::send_command(const command_t& command)
 {
     // Cancel same repeated command except for DIR_REVERSE

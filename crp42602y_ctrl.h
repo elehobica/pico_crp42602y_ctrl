@@ -43,7 +43,8 @@ class crp42602y_ctrl {
     typedef enum _reverse_mode_t {
         RVS_ONE_WAY = 0,
         RVS_ONE_ROUND,
-        RVS_INFINITE_ROUND
+        RVS_INFINITE_ROUND,
+        __NUM_RVS_MODES__
     } reverse_mode_t;
     typedef enum _callback_type_t {
         ON_GEAR_ERROR = 0,
@@ -78,6 +79,8 @@ class crp42602y_ctrl {
     bool is_playing() const;
     bool is_cueing() const;
     bool is_dir_a() const;
+    void set_reverse_mode(const reverse_mode_t mode);
+    reverse_mode_t get_reverse_mode() const;
     bool send_command(const command_t& command);
     void process_loop();
     void register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type));

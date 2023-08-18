@@ -21,8 +21,8 @@ static constexpr uint PIN_CASSETTE_DETECT = 3;
 static constexpr uint PIN_GEAR_STATUS_SW  = 4;
 static constexpr uint PIN_ROTATION_SENS   = 5;  // This needs to be PWM_B pin
 // Buttons
-static constexpr uint PIN_DOWN_BUTTON   = 18;
-static constexpr uint PIN_UP_BUTTON     = 19;
+static constexpr uint PIN_UP_BUTTON     = 18;
+static constexpr uint PIN_DOWN_BUTTON   = 19;
 static constexpr uint PIN_LEFT_BUTTON   = 20;
 static constexpr uint PIN_RIGHT_BUTTON  = 21;
 static constexpr uint PIN_CENTER_BUTTON = 22;
@@ -45,10 +45,10 @@ static button_t btns_5way_tactile_plus2[] = {
     {"reset",  PIN_RESET_BUTTON,  &Buttons::DEFAULT_BUTTON_SINGLE_CONFIG},
     {"set",    PIN_SET_BUTTON,    &Buttons::DEFAULT_BUTTON_SINGLE_CONFIG},
     {"center", PIN_CENTER_BUTTON, &Buttons::DEFAULT_BUTTON_MULTI_CONFIG},
-    {"left",   PIN_RIGHT_BUTTON,  &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG},
-    {"right",  PIN_LEFT_BUTTON,   &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG},
-    {"up",     PIN_DOWN_BUTTON,   &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG},
-    {"down",   PIN_UP_BUTTON,     &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG}
+    {"right",  PIN_RIGHT_BUTTON,  &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG},
+    {"left",   PIN_LEFT_BUTTON,   &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG},
+    {"down",   PIN_DOWN_BUTTON,   &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG},
+    {"up",     PIN_UP_BUTTON,     &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG}
 };
 
 Buttons* buttons = nullptr;
@@ -247,6 +247,27 @@ int main()
                         fwd();
                     } else if (strncmp(btnEvent.button_name, "up", 2) == 0) {
                         rwd();
+                    } else if (strncmp(btnEvent.button_name, "right", 5) == 0) {
+                    } else if (strncmp(btnEvent.button_name, "left", 4) == 0) {
+                        crp42602y_ctrl::reverse_mode_t reverse_mode = crp42602y_ctrl0->get_reverse_mode();
+                        reverse_mode = (crp42602y_ctrl::reverse_mode_t) ((int) reverse_mode + 1);
+                        if (reverse_mode == crp42602y_ctrl::__NUM_RVS_MODES__) {
+                            reverse_mode = crp42602y_ctrl::RVS_ONE_WAY;
+                        }
+                        crp42602y_ctrl0->set_reverse_mode(reverse_mode);
+                        switch (reverse_mode) {
+                        case crp42602y_ctrl::RVS_ONE_WAY:
+                            printf("reverse mode: one way\r\n");
+                            break;
+                        case crp42602y_ctrl::RVS_ONE_ROUND:
+                            printf("reverse mode: one round\r\n");
+                            break;
+                        case crp42602y_ctrl::RVS_INFINITE_ROUND:
+                            printf("reverse mode: infinite round\r\n");
+                            break;
+                        default:
+                            break;
+                        }
                     }
                 }
                 break;
