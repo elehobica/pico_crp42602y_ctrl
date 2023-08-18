@@ -79,7 +79,8 @@ class crp42602y_ctrl {
     void periodic_func_100ms();
     bool is_playing() const;
     bool is_cueing() const;
-    bool is_dir_a() const;
+    bool set_head_dir_a(const bool head_dir_a);
+    bool get_head_dir_a() const;
     void set_reverse_mode(const reverse_mode_t mode);
     reverse_mode_t get_reverse_mode() const;
     bool send_command(const command_t& command);

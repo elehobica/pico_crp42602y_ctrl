@@ -105,31 +105,31 @@ static void playB()
 
 static void play(bool nonReverse)
 {
-    bool is_dir_a = crp42602y_ctrl0->is_dir_a();
+    bool head_dir_a = crp42602y_ctrl0->get_head_dir_a();
     if (nonReverse) {
         if (crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_COMMAND)) {
-            printf("play %c\r\n", is_dir_a ? 'A' : 'B');
+            printf("play %c\r\n", head_dir_a ? 'A' : 'B');
         }
     } else {
         if (crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_REVERSE_COMMAND)) {
-            printf("play %c\r\n", !is_dir_a ? 'A' : 'B');  // opposite to current
+            printf("play %c\r\n", !head_dir_a ? 'A' : 'B');  // opposite to current
         }
     }
 }
 
 static void fwd()
 {
-    bool is_dir_a = crp42602y_ctrl0->is_dir_a();
+    bool head_dir_a = crp42602y_ctrl0->get_head_dir_a();
     if (crp42602y_ctrl0->send_command(crp42602y_ctrl::FWD_COMMAND)) {
-        printf("fwd (%s)\r\n", is_dir_a ? "fwd A" : "rwd B");
+        printf("fwd (%s)\r\n", head_dir_a ? "fwd A" : "rwd B");
     }
 }
 
 static void rwd()
 {
-    bool is_dir_a = crp42602y_ctrl0->is_dir_a();
+    bool head_dir_a = crp42602y_ctrl0->get_head_dir_a();
     if (crp42602y_ctrl0->send_command(crp42602y_ctrl::RWD_COMMAND)) {
-        printf("rwd (%s)\r\n", is_dir_a ? "rwd A" : "fwd B");
+        printf("rwd (%s)\r\n", head_dir_a ? "rwd A" : "fwd B");
     }
 }
 
@@ -248,6 +248,10 @@ int main()
                     } else if (strncmp(btnEvent.button_name, "up", 2) == 0) {
                         rwd();
                     } else if (strncmp(btnEvent.button_name, "right", 5) == 0) {
+                        bool head_dir_a = crp42602y_ctrl0->get_head_dir_a();
+                        head_dir_a = !head_dir_a;
+                        head_dir_a = crp42602y_ctrl0->set_head_dir_a(head_dir_a);
+                        printf("head dir %c\r\n", head_dir_a ? 'A' : 'B');
                     } else if (strncmp(btnEvent.button_name, "left", 4) == 0) {
                         crp42602y_ctrl::reverse_mode_t reverse_mode = crp42602y_ctrl0->get_reverse_mode();
                         reverse_mode = (crp42602y_ctrl::reverse_mode_t) ((int) reverse_mode + 1);

@@ -169,7 +169,16 @@ bool crp42602y_ctrl::is_cueing() const
     return _cueing;
 }
 
-bool crp42602y_ctrl::is_dir_a() const
+bool crp42602y_ctrl::set_head_dir_a(const bool head_dir_a)
+{
+    // ignore when in func
+    if (!_is_gear_in_func()) {
+        _head_dir_a = head_dir_a;
+    }
+    return _head_dir_a;
+}
+
+bool crp42602y_ctrl::get_head_dir_a() const
 {
     return _head_dir_a;
 }
