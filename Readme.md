@@ -9,7 +9,7 @@
 * CRP42602Y mechanism
 
 ## Pin Assignment & Connection
-### CRP42602 Connector
+### CRP42602 connector
 | Pico Pin # | GPIO | Function | Connection |
 ----|----|----|----
 | 4 | GP2 | SOLENOID_CTRL | to solenoid control (0: pull, 1: release) |
@@ -17,7 +17,13 @@
 | 6 | GP4 | FUNC_STATUS_SW | from CRP42602Y pin 3 |
 | 7 | GP5 | ROTATION_SENS | from CRP42602Y pin 2 |
 | 8 | GND | GND | GND |
-| 9 | GP6 | POWER_CTRL | to power control (0: disable, 1: enable) |
+
+### CRP42602 control with additional circuit
+| Pico Pin # | GPIO | Function | Connection |
+----|----|----|----
+| 4 | GP2 | SOLENOID_CTRL | to solenoid control (mandatory) (0: pull, 1: release) |
+| 8 | GND | GND | GND |
+| 9 | GP6 | POWER_CTRL | to power control (optional) (0: disable, 1: enable) |
 
 ## How to build
 * See ["Getting started with Raspberry Pi Pico"](https://datasheets.raspberrypi.org/pico/getting-started-with-pico.pdf)
@@ -48,4 +54,4 @@
 > cmake -G "NMake Makefiles" ..
 > nmake
 ```
-* Put "pico_crp42602y_ctrl.uf2" on RPI-RP2 drive
+* Put "xxxx.uf2" on RPI-RP2 drive
