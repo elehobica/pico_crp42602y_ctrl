@@ -30,6 +30,7 @@ class crp42602y_ctrl {
     } command_t;
 
     // Constants
+    static constexpr int POWER_OFF_TIMEOUT_SEC = 300;
     static constexpr int COMMAND_QUEUE_LENGTH = 4;
     static constexpr int PERIODIC_FUNC_MS = 100;
     static constexpr int ROTATION_SENS_STOP_DETECT_MS = 1000;
@@ -53,6 +54,7 @@ class crp42602y_ctrl {
         ON_CASSETTE_EJECT,
         ON_STOP,
         ON_REVERSE,
+        ON_TIMEOUT_POWER_OFF,
         __NUM_CALLBACKS__
     } callback_type_t;
 
@@ -71,6 +73,7 @@ class crp42602y_ctrl {
         uint pin_gear_status_sw,   // GPIO Input: Gear function status switch
         uint pin_rotation_sens,    // PWM_B Input: Rotation sensor
         uint pin_solenoid_ctrl,    // GPIO Output: This needs additional circuit to control solenoid
+        uint pin_power_enable = 0, // GPIO Output: Power contrl (for timeout disable) (optional: 0 for not use)
         uint pin_rec_a_sw = 0,     // GPIO Input: Rec switch for A (optional: 0 for not use)
         uint pin_rec_b_sw = 0,     // GPIO Input: Rec switch for B (optional: 0 for not use)
         uint pin_type2_sw = 0      // GPIO Input: Type II switch (optional: 0 for not use)
@@ -93,6 +96,7 @@ class crp42602y_ctrl {
     uint _pin_gear_status_sw;
     uint _pin_rotation_sens;
     uint _pin_solenoid_ctrl;
+    uint _pin_power_ctrl;
     uint _pin_rec_a_sw;
     uint _pin_rec_b_sw;
     uint _pin_type2_sw;
@@ -106,10 +110,13 @@ class crp42602y_ctrl {
     bool _cueing;
     int _periodic_count;
     int _rot_stop_ignore_count;
+    int _power_off_timeout_count;
     bool _has_cur_gear_status;
     bool _cur_head_dir_a;
     bool _cur_lift_head;
     bool _cur_reel_fwd;
+    bool _power_enable;
+
 
     queue_t   _command_queue;
     command_t _command_history_registered[NUM_COMMAND_HISTORY_REGISTERED];
@@ -120,6 +127,8 @@ class crp42602y_ctrl {
 
     void _invoke_callback(const callback_type_t callback_type) const;
     void _pull_solenoid(const bool flag) const;
+    void _set_power_enable(const bool flag);
+    bool _get_power_enable() const;
     bool _is_gear_in_func() const;
     void _store_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
     bool _equal_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd) const;

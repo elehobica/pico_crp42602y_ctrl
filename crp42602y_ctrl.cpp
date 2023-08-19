@@ -14,6 +14,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     uint pin_gear_status_sw,
     uint pin_rotation_sens,
     uint pin_solenoid_ctrl,
+    uint pin_power_ctrl,
     uint pin_rec_a_sw,
     uint pin_rec_b_sw,
     uint pin_type2_sw
@@ -22,6 +23,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _pin_gear_status_sw(pin_gear_status_sw),
     _pin_rotation_sens(pin_rotation_sens),
     _pin_solenoid_ctrl(pin_solenoid_ctrl),
+    _pin_power_ctrl(pin_power_ctrl),
     _pin_rec_a_sw(pin_rec_a_sw),
     _pin_rec_b_sw(pin_rec_b_sw),
     _pin_type2_sw(pin_type2_sw),
@@ -32,10 +34,12 @@ crp42602y_ctrl::crp42602y_ctrl(
     _cueing(false),
     _periodic_count(0),
     _rot_stop_ignore_count(0),
+    _power_off_timeout_count(0),
     _has_cur_gear_status(false),
     _cur_head_dir_a(false),
     _cur_lift_head(false),
-    _cur_reel_fwd(false)
+    _cur_reel_fwd(false),
+    _power_enable(true)
 {
     queue_init(&_command_queue, sizeof(command_t), COMMAND_QUEUE_LENGTH);
     for (int i = 0; i < NUM_COMMAND_HISTORY_REGISTERED; i++) {
@@ -45,7 +49,15 @@ crp42602y_ctrl::crp42602y_ctrl(
         _command_history_issued[i] = VOID_COMMAND;
     }
 
-    // PWM for _pin_rotation_sens
+    for (int i = 0; i < sizeof(_rot_count_history) / sizeof(uint16_t); i++) {
+        _rot_count_history[i] = 0;
+    }
+
+    for (int i = 0; i < __NUM_CALLBACKS__; i++) {
+        _callbacks[i] = nullptr;
+    }
+
+    // PWM setting for _pin_rotation_sens
     gpio_set_function(_pin_rotation_sens, GPIO_FUNC_PWM);
     _pwm_slice_num = pwm_gpio_to_slice_num(_pin_rotation_sens);
     pwm_config pwm_config0 = pwm_get_default_config();
@@ -53,12 +65,21 @@ crp42602y_ctrl::crp42602y_ctrl(
     pwm_config_set_clkdiv_int(&pwm_config0, 1);
     pwm_init(_pwm_slice_num, &pwm_config0, true);
 
-    for (int i = 0; i < sizeof(_rot_count_history) / sizeof(uint16_t); i++) {
-        _rot_count_history[i] = 0;
-    }
+    // GPIO setting (pull-up should be done in advance outside if needed)
+    gpio_init(_pin_cassette_detect);
+    gpio_set_dir(_pin_cassette_detect, GPIO_IN);
 
-    for (int i = 0; i < __NUM_CALLBACKS__; i++) {
-        _callbacks[i] = nullptr;
+    gpio_init(_pin_gear_status_sw);
+    gpio_set_dir(_pin_gear_status_sw, GPIO_IN);
+
+    gpio_init(_pin_solenoid_ctrl);
+    _pull_solenoid(false); // set default before setting output mode
+    gpio_set_dir(_pin_solenoid_ctrl, GPIO_OUT);
+
+    if (_pin_power_ctrl != 0) {
+        gpio_init(_pin_power_ctrl);
+        _set_power_enable(true); // set default before setting output mode
+        gpio_set_dir(_pin_power_ctrl, GPIO_OUT);
     }
 }
 
@@ -67,6 +88,7 @@ void crp42602y_ctrl::periodic_func_100ms()
     static bool _prev_has_cussette = false;
     _has_cassette = !gpio_get(_pin_cassette_detect);
 
+    // Cassette set/eject detection
     if (!_prev_has_cussette && _has_cassette) {
         _invoke_callback(ON_CASSETTE_SET);
     } else if (_prev_has_cussette && !_has_cassette) {
@@ -78,7 +100,16 @@ void crp42602y_ctrl::periodic_func_100ms()
     }
     _prev_has_cussette = _has_cassette;
 
-    // rotation check
+    // Timeout power off (for mechanism)
+    if (_is_gear_in_func()) {
+        _power_off_timeout_count = 0;
+    } else if (_power_off_timeout_count > POWER_OFF_TIMEOUT_SEC * 1000 / PERIODIC_FUNC_MS) {
+        _power_off_timeout_count = 0;
+        _set_power_enable(false);
+        _invoke_callback(ON_TIMEOUT_POWER_OFF);
+    }
+
+    // Rotation check
     int num_rot_count_history = sizeof(_rot_count_history) / sizeof(uint16_t);
     uint16_t rot_count = pwm_get_counter(_pwm_slice_num);
     bool rotating = true;
@@ -107,7 +138,7 @@ void crp42602y_ctrl::periodic_func_100ms()
         }
     }
 
-    // shift history
+    // Shift rotation history
     for (int i = num_rot_count_history - 1; i >= 1; i--) {
         _rot_count_history[i] = _rot_count_history[i - 1];
     }
@@ -156,6 +187,7 @@ void crp42602y_ctrl::periodic_func_100ms()
     }
 
     _rot_stop_ignore_count++;
+    if (_get_power_enable()) _power_off_timeout_count++;
     _periodic_count++;
 }
 
@@ -266,9 +298,22 @@ void crp42602y_ctrl::_pull_solenoid(const bool flag) const
     gpio_put(_pin_solenoid_ctrl, !flag);
 }
 
+void crp42602y_ctrl::_set_power_enable(const bool flag)
+{
+    if (_pin_power_ctrl != 0) {
+        gpio_put(_pin_power_ctrl, flag);
+        _power_enable = flag;
+    }
+}
+
+bool crp42602y_ctrl::_get_power_enable() const
+{
+    return _power_enable;
+}
+
 bool crp42602y_ctrl::_is_gear_in_func() const
 {
-    return !gpio_get(_pin_gear_status_sw);
+    return !gpio_get(_pin_gear_status_sw) && _power_enable;
 }
 
 void crp42602y_ctrl::_store_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd)
@@ -287,6 +332,14 @@ bool crp42602y_ctrl::_equal_gear_status(const bool head_dir_a, const bool lift_h
 
 void crp42602y_ctrl::_func_sequence(const bool head_dir_a, const bool lift_head, const bool reel_fwd)
 {
+    constexpr uint32_t tWaitMotorStable = 500;
+
+    // release power disable if needed
+    if (!_power_enable) {
+        _set_power_enable(true);
+        sleep_ms(tWaitMotorStable);
+    }
+
     // Function sequence has 190 degree of function gear to rotate in 400 ms
     // Timing definitions (milliseconds) (All values are set experimentally)
     constexpr uint32_t tInitS     = 0;           // Unhook the function gear

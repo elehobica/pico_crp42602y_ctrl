@@ -20,6 +20,7 @@ static constexpr uint PIN_SOLENOID_CTRL   = 2;
 static constexpr uint PIN_CASSETTE_DETECT = 3;
 static constexpr uint PIN_GEAR_STATUS_SW  = 4;
 static constexpr uint PIN_ROTATION_SENS   = 5;  // This needs to be PWM_B pin
+static constexpr uint PIN_POWER_CTRL      = 6;
 // Buttons
 static constexpr uint PIN_UP_BUTTON     = 18;
 static constexpr uint PIN_DOWN_BUTTON   = 19;
@@ -159,6 +160,9 @@ void crp42602y_ctrl_callback(const crp42602y_ctrl::callback_type_t callback_type
     case crp42602y_ctrl::ON_REVERSE:
         printf("reversed\r\n");
         break;
+    case crp42602y_ctrl::ON_TIMEOUT_POWER_OFF:
+        printf("power off\r\n");
+        break;
     default:
         break;
     }
@@ -173,20 +177,10 @@ int main()
     gpio_set_dir(PIN_LED, GPIO_OUT);
     gpio_put(PIN_LED, 0);
 
-    // CRP42602Y pins
-    gpio_init(PIN_CASSETTE_DETECT);
-    gpio_set_dir(PIN_CASSETTE_DETECT, GPIO_IN);
+    // CRP42602Y pins pull-up (GPIO mode is cared in the library)
     gpio_pull_up(PIN_CASSETTE_DETECT);
-
-    gpio_init(PIN_GEAR_STATUS_SW);
-    gpio_set_dir(PIN_GEAR_STATUS_SW, GPIO_IN);
     gpio_pull_up(PIN_GEAR_STATUS_SW);
-
     gpio_pull_up(PIN_ROTATION_SENS);
-
-    gpio_init(PIN_SOLENOID_CTRL);
-    gpio_put(PIN_SOLENOID_CTRL, 1);  // set default = 1 before output mode
-    gpio_set_dir(PIN_SOLENOID_CTRL, GPIO_OUT);
 
     // Pins for Buttons
     for (int i = 0; i < sizeof(btns_5way_tactile_plus2) / sizeof(button_t); i++) {
@@ -200,7 +194,7 @@ int main()
     buttons = new Buttons(btns_5way_tactile_plus2, sizeof(btns_5way_tactile_plus2) / sizeof(button_t));
 
     // CRP42602Y_CTRL
-    crp42602y_ctrl0 = new crp42602y_ctrl(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL);
+    crp42602y_ctrl0 = new crp42602y_ctrl(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL, PIN_POWER_CTRL);
     crp42602y_ctrl0->register_callback_all(crp42602y_ctrl_callback);
 
     // negative timeout means exact delay (rather than delay between callbacks)
