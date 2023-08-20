@@ -140,10 +140,10 @@ class crp42602y_ctrl {
     bool _is_gear_in_func() const;
     void _store_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
     bool _equal_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd) const;
-    void _func_sequence(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
-    void _return_sequence();
+    bool _func_sequence(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
+    bool _return_sequence();
     bool _get_abs_dir(const direction_t dir) const;
-    void _stop(const direction_t dir);
-    void _play(const direction_t dir);
-    void _cue(const direction_t dir);
+    bool _stop(const direction_t dir);
+    bool _play(const direction_t dir);
+    bool _cue(const direction_t dir);
 };

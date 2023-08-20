@@ -233,7 +233,7 @@ static void crp42602y_process()
     }
 }
 
-void crp42602y_ctrl_callback(const crp42602y_ctrl::callback_type_t callback_type)
+void crp42602y_callback(const crp42602y_ctrl::callback_type_t callback_type)
 {
     _callback_flag[(int) callback_type] = true;
 }
@@ -355,6 +355,25 @@ void inc_nr(bool inc = true)
     ssd1306_show(&disp);
 }
 
+void disp_default_contents()
+{
+    _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
+    if (_has_cassette) {
+        _ssd1306_draw_stop_arrow(&disp, crp42602y_ctrl0->get_head_dir_a());
+    } else {
+        ssd1306_draw_string(&disp, 40, 32-4, 1, "NO CASSETTE");
+    }
+
+    _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
+    ssd1306_draw_string(&disp, 0, 0, 1, "STOP");
+    ssd1306_show(&disp);
+
+    inc_head_dir(false);
+    inc_reverse_mode(false);
+    inc_eq(false);
+    inc_nr(false);
+}
+
 int main()
 {
     stdio_init_all();
@@ -389,7 +408,7 @@ int main()
 
     // CRP42602Y_CTRL
     crp42602y_ctrl0 = new crp42602y_ctrl(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL, PIN_POWER_CTRL);
-    crp42602y_ctrl0->register_callback_all(crp42602y_ctrl_callback);
+    crp42602y_ctrl0->register_callback_all(crp42602y_callback);
 
     // EQ_NR
     eq_nr0 = new eq_nr(PIN_EQ_CTRL, PIN_NR_CTRL0, PIN_NR_CTRL1);
@@ -399,11 +418,7 @@ int main()
     ssd1306_init(&disp, 128, 64, 0x3C, i2c0);
     ssd1306_clear(&disp);
     ssd1306_show(&disp);
-
-    // Display default contents
-    inc_reverse_mode(false);
-    inc_eq(false);
-    inc_nr(false);
+    disp_default_contents();
 
     // negative timeout means exact delay (rather than delay between callbacks)
     if (!add_repeating_timer_us(-INTERVAL_MS_BUTTONS_CHECK * 1000, periodic_func, nullptr, &timer)) {
@@ -458,7 +473,7 @@ int main()
                     } else if (strncmp(btnEvent.button_name, "up", 2) == 0) {
                         rwd();
                     } else if (strncmp(btnEvent.button_name, "right", 5) == 0) {
-                        inc_head_dir(_crp42602y_power);
+                        inc_head_dir(_crp42602y_power && _has_cassette);
                     } else if (strncmp(btnEvent.button_name, "left", 4) == 0) {
                         inc_reverse_mode(_crp42602y_power);
                     } else if (strncmp(btnEvent.button_name, "reset", 5) == 0) {
@@ -494,13 +509,11 @@ int main()
             printf("Cassette set\r\n");
             _has_cassette = true;
             prev_disp_time = 0;
+            crp42602y_ctrl0->recover_power_from_timeout();
         }
         if (crp42602y_get_flag(crp42602y_ctrl::ON_CASSETTE_EJECT)) {
             printf("Cassette eject\r\n");
             _has_cassette = false;
-            _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
-            ssd1306_draw_string(&disp, 40, 32-4, 1, "NO CASSETTE");
-            ssd1306_show(&disp);
             prev_disp_time = 0;
         }
         if (crp42602y_get_flag(crp42602y_ctrl::ON_STOP)) {
@@ -550,34 +563,38 @@ int main()
         }
         if (crp42602y_get_flag(crp42602y_ctrl::ON_RECOVER_POWER_FROM_TIMEOUT)) {
             printf("Power recover\r\n");
-            // Display default contents
-            inc_reverse_mode(false);
-            inc_eq(false);
-            inc_nr(false);
+            disp_default_contents();
             _crp42602y_power = true;
             prev_disp_time = 0;
         }
 
         // Image Display
         if (now_time - prev_disp_time > 100) {
-            if (_crp42602y_power && _has_cassette) {
-                if (crp42602y_ctrl0->is_playing()) {
-                    uint32_t pos = disp_count/2 % 16;
+            if (_crp42602y_power) {
+                if (!_has_cassette) {
                     _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
-                    _ssd1306_draw_play_arrow(&disp, crp42602y_ctrl0->get_head_dir_a(), pos);
-                    ssd1306_show(&disp);
-                    disp_count++;
-                } else if (crp42602y_ctrl0->is_cueing()) {
-                    uint32_t pos = disp_count % 16;
-                    _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
-                    _ssd1306_draw_cue_arrow(&disp, crp42602y_ctrl0->get_cue_dir_a(), pos);
-                    ssd1306_show(&disp);
-                    disp_count++;
-                } else {
-                    _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
-                    _ssd1306_draw_stop_arrow(&disp, crp42602y_ctrl0->get_head_dir_a());
+                    ssd1306_draw_string(&disp, 40, 32-4, 1, "NO CASSETTE");
                     ssd1306_show(&disp);
                     disp_count = 0;
+                } else {
+                    if (crp42602y_ctrl0->is_playing()) {
+                        uint32_t pos = disp_count/2 % 16;
+                        _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
+                        _ssd1306_draw_play_arrow(&disp, crp42602y_ctrl0->get_head_dir_a(), pos);
+                        ssd1306_show(&disp);
+                        disp_count++;
+                    } else if (crp42602y_ctrl0->is_cueing()) {
+                        uint32_t pos = disp_count % 16;
+                        _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
+                        _ssd1306_draw_cue_arrow(&disp, crp42602y_ctrl0->get_cue_dir_a(), pos);
+                        ssd1306_show(&disp);
+                        disp_count++;
+                    } else {  // STOP
+                        _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
+                        _ssd1306_draw_stop_arrow(&disp, crp42602y_ctrl0->get_head_dir_a());
+                        ssd1306_show(&disp);
+                        disp_count = 0;
+                    }
                 }
             } else {
                 disp_count = 0;
