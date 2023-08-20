@@ -32,6 +32,7 @@ class crp42602y_ctrl {
     // Constants
     static constexpr int POWER_OFF_TIMEOUT_SEC = 300;
     static constexpr int COMMAND_QUEUE_LENGTH = 4;
+    static constexpr int CALLBACK_QUEUE_LENGTH = 4;
     static constexpr int PERIODIC_FUNC_MS = 100;
     static constexpr int ROTATION_SENS_STOP_DETECT_MS = 1000;
     static constexpr int NUM_COMMAND_HISTORY_REGISTERED = 1;
@@ -81,7 +82,7 @@ class crp42602y_ctrl {
         uint pin_rec_b_sw = 0,     // GPIO Input: Rec switch for B (optional: 0 for not use)
         uint pin_type2_sw = 0      // GPIO Input: Type II switch (optional: 0 for not use)
         );
-    virtual ~crp42602y_ctrl() {};
+    virtual ~crp42602y_ctrl();
     void periodic_func_100ms();
     bool is_playing() const;
     bool is_cueing() const;
@@ -125,13 +126,14 @@ class crp42602y_ctrl {
 
 
     queue_t   _command_queue;
+    queue_t   _callback_queue;
     command_t _command_history_registered[NUM_COMMAND_HISTORY_REGISTERED];
     command_t _command_history_issued[NUM_COMMAND_HISTORY_ISSUED];
     uint      _pwm_slice_num;
     uint16_t  _rot_count_history[ROTATION_SENS_STOP_DETECT_MS / PERIODIC_FUNC_MS];
     void (*_callbacks[__NUM_CALLBACKS__])(const callback_type_t callback_type);
 
-    void _invoke_callback(const callback_type_t callback_type) const;
+    bool _dispatch_callback(const callback_type_t callback_type);
     void _pull_solenoid(const bool flag) const;
     void _set_power_enable(const bool flag);
     bool _get_power_enable() const;
@@ -139,7 +141,7 @@ class crp42602y_ctrl {
     void _store_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
     bool _equal_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd) const;
     void _func_sequence(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
-    void _return_sequence() const;
+    void _return_sequence();
     bool _get_abs_dir(const direction_t dir) const;
     void _stop(const direction_t dir);
     void _play(const direction_t dir);

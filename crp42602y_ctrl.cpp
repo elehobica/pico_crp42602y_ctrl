@@ -43,6 +43,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _power_enable(true)
 {
     queue_init(&_command_queue, sizeof(command_t), COMMAND_QUEUE_LENGTH);
+    queue_init(&_callback_queue, sizeof(command_t), CALLBACK_QUEUE_LENGTH);
     for (int i = 0; i < NUM_COMMAND_HISTORY_REGISTERED; i++) {
         _command_history_registered[i] = VOID_COMMAND;
     }
@@ -84,6 +85,12 @@ crp42602y_ctrl::crp42602y_ctrl(
     }
 }
 
+crp42602y_ctrl::~crp42602y_ctrl()
+{
+    queue_free(&_command_queue);
+    queue_free(&_callback_queue);
+}
+
 void crp42602y_ctrl::periodic_func_100ms()
 {
     static bool _prev_has_cussette = false;
@@ -91,9 +98,9 @@ void crp42602y_ctrl::periodic_func_100ms()
 
     // Cassette set/eject detection
     if (!_prev_has_cussette && _has_cassette) {
-        _invoke_callback(ON_CASSETTE_SET);
+        _dispatch_callback(ON_CASSETTE_SET);
     } else if (_prev_has_cussette && !_has_cassette) {
-        _invoke_callback(ON_CASSETTE_EJECT);
+        _dispatch_callback(ON_CASSETTE_EJECT);
         if (_is_gear_in_func()) {
             send_command(STOP_COMMAND);
         }
@@ -106,7 +113,7 @@ void crp42602y_ctrl::periodic_func_100ms()
     } else if (_power_off_timeout_count > POWER_OFF_TIMEOUT_SEC * 1000 / PERIODIC_FUNC_MS) {
         _power_off_timeout_count = 0;
         _set_power_enable(false);
-        _invoke_callback(ON_TIMEOUT_POWER_OFF);
+        _dispatch_callback(ON_TIMEOUT_POWER_OFF);
     }
 
     // Rotation check
@@ -242,8 +249,8 @@ bool crp42602y_ctrl::send_command(const command_t& command)
 
 void crp42602y_ctrl::process_loop()
 {
-    uint count = queue_get_level(&_command_queue);
-    if (count) {
+    // Process command
+    while (queue_get_level(&_command_queue) > 0) {
         command_t command;
         queue_remove_blocking(&_command_queue, &command);
         switch (command.type) {
@@ -251,23 +258,23 @@ void crp42602y_ctrl::process_loop()
             _stop(command.dir);
             _playing = false;
             _cueing = false;
-            _invoke_callback(ON_STOP);
+            _dispatch_callback(ON_STOP);
             break;
         case CMD_TYPE_PLAY:
             _play(command.dir);
             _playing = true;
             _cueing = false;
             if (command.dir == DIR_REVERSE) {
-                _invoke_callback(ON_REVERSE);
+                _dispatch_callback(ON_REVERSE);
             } else {
-                _invoke_callback(ON_PLAY);
+                _dispatch_callback(ON_PLAY);
             }
             break;
         case CMD_TYPE_CUE:
             _cue(command.dir);
             _playing = false;
             _cueing = true;
-            _invoke_callback(ON_CUE);
+            _dispatch_callback(ON_CUE);
             break;
         default:
             break;
@@ -277,6 +284,14 @@ void crp42602y_ctrl::process_loop()
         }
         _command_history_issued[0] = command;
     }
+
+    // Process callback
+    while (queue_get_level(&_callback_queue) > 0) {
+        callback_type_t callback_type;
+        queue_remove_blocking(&_callback_queue, &callback_type);
+        if (_callbacks[callback_type] == nullptr) continue;
+        _callbacks[callback_type](callback_type);
+    }
 }
 
 void crp42602y_ctrl::recover_power_from_timeout()
@@ -285,7 +300,7 @@ void crp42602y_ctrl::recover_power_from_timeout()
     bool power_enable = _power_enable;
     _set_power_enable(true);
     if (!power_enable) {
-        _invoke_callback(ON_RECOVER_POWER_FROM_TIMEOUT);
+        _dispatch_callback(ON_RECOVER_POWER_FROM_TIMEOUT);
     }
 }
 
@@ -301,10 +316,9 @@ void crp42602y_ctrl::register_callback_all(void (*func)(const callback_type_t ca
     }
 }
 
-void crp42602y_ctrl::_invoke_callback(const callback_type_t callback_type) const
+bool crp42602y_ctrl::_dispatch_callback(const callback_type_t callback_type)
 {
-    if (_callbacks[callback_type] == nullptr) return;
-    _callbacks[callback_type](callback_type);
+    return queue_try_add(&_callback_queue, &callback_type);
 }
 
 void crp42602y_ctrl::_pull_solenoid(const bool flag) const
@@ -383,11 +397,11 @@ void crp42602y_ctrl::_func_sequence(const bool head_dir_a, const bool lift_head,
     if (_is_gear_in_func()) {
         _store_gear_status(head_dir_a, lift_head, reel_fwd);
     } else {
-        _invoke_callback(ON_GEAR_ERROR);
+        _dispatch_callback(ON_GEAR_ERROR);
     }
 }
 
-void crp42602y_ctrl::_return_sequence() const
+void crp42602y_ctrl::_return_sequence()
 {
     // Return sequence has (360 - 190) degree of function gear,
     //  which is needed to take another function when the gear is already in function position
@@ -399,7 +413,7 @@ void crp42602y_ctrl::_return_sequence() const
     sleep_ms(20);  // additional margin
 
     if (_is_gear_in_func()) {
-        _invoke_callback(ON_GEAR_ERROR);
+        _dispatch_callback(ON_GEAR_ERROR);
     }
 }
 
