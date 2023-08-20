@@ -14,6 +14,7 @@ pico_sdk_init()
 
 add_subdirectory(../.. crp42602y_ctrl)
 add_subdirectory(../lib/pico_buttons buttons)
+add_subdirectory(../lib/pico-ssd1306 ssd1306)
 
 add_executable(${PROJECT_NAME}
     main.cpp
@@ -26,6 +27,7 @@ target_link_libraries(${PROJECT_NAME}
     pico_multicore
     crp42602y_ctrl
     buttons
+    ssd1306
 )
 
 # create map/bin/hex file etc.

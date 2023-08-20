@@ -43,8 +43,8 @@
 
 ## Button operation
 * center: play/stop (single click), reverse play (double click)
-* down: fwd
-* up: rwd
+* down: fast forward
+* up: rewind
 * right: direction A/B
 * left: reverse mode
 * reset: EQ select
@@ -54,8 +54,8 @@
 * 's': play
 * 'p': play
 * 'q': reverse play
-* 'f': fwd
-* 'r': rwd
+* 'f': fast forward
+* 'r': rewind
 * 'd': direction A/B
 * 'v': reverse mode
 * 'e': EQ select

@@ -19,10 +19,10 @@ class crp42602y_ctrl {
         CMD_TYPE_CUE
     } command_type_t;
     typedef enum _direction_t {
-        DIR_KEEP = 0,  // relative FWD
-        DIR_REVERSE,   // relative RWD
-        DIR_FWD,       // absolute FWD (FWD for side A)
-        DIR_RWD        // absolute RWD (FWD for side A)
+        DIR_KEEP = 0,  // relative Forward
+        DIR_REVERSE,   // relative Backward
+        DIR_FORWARD,   // absolute Forward (Forward for side A)
+        DIR_BACKWARD   // absolute Backward (Forward for side B)
     } direction_t;
     typedef struct _command_t {
         command_type_t type;
@@ -53,8 +53,11 @@ class crp42602y_ctrl {
         ON_CASSETTE_SET,
         ON_CASSETTE_EJECT,
         ON_STOP,
+        ON_PLAY,
+        ON_CUE,
         ON_REVERSE,
         ON_TIMEOUT_POWER_OFF,
+        ON_RECOVER_POWER_FROM_TIMEOUT,
         __NUM_CALLBACKS__
     } callback_type_t;
 
@@ -63,10 +66,10 @@ class crp42602y_ctrl {
     static constexpr command_t STOP_COMMAND         = {CMD_TYPE_STOP, DIR_KEEP};
     static constexpr command_t PLAY_COMMAND         = {CMD_TYPE_PLAY, DIR_KEEP};
     static constexpr command_t PLAY_REVERSE_COMMAND = {CMD_TYPE_PLAY, DIR_REVERSE};
-    static constexpr command_t PLAY_A_COMMAND       = {CMD_TYPE_PLAY, DIR_FWD};
-    static constexpr command_t PLAY_B_COMMAND       = {CMD_TYPE_PLAY, DIR_RWD};
-    static constexpr command_t FWD_COMMAND          = {CMD_TYPE_CUE,  DIR_FWD};
-    static constexpr command_t RWD_COMMAND          = {CMD_TYPE_CUE,  DIR_RWD};
+    static constexpr command_t PLAY_A_COMMAND       = {CMD_TYPE_PLAY, DIR_FORWARD};
+    static constexpr command_t PLAY_B_COMMAND       = {CMD_TYPE_PLAY, DIR_BACKWARD};
+    static constexpr command_t FF_COMMAND           = {CMD_TYPE_CUE,  DIR_FORWARD};
+    static constexpr command_t REW_COMMAND          = {CMD_TYPE_CUE,  DIR_BACKWARD};
 
     crp42602y_ctrl(
         uint pin_cassette_detect,  // GPIO Input: Cassette detection
@@ -84,10 +87,12 @@ class crp42602y_ctrl {
     bool is_cueing() const;
     bool set_head_dir_a(const bool head_dir_a);
     bool get_head_dir_a() const;
+    bool get_cue_dir_a() const;
     void set_reverse_mode(const reverse_mode_t mode);
     reverse_mode_t get_reverse_mode() const;
     bool send_command(const command_t& command);
     void process_loop();
+    void recover_power_from_timeout();
     void register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type));
     void register_callback_all(void (*func)(const callback_type_t callback_type));
 
@@ -104,6 +109,7 @@ class crp42602y_ctrl {
     uint _pin_dolby_off_ctrl;
     uint _pin_dolby_c_ctrl;
     bool _head_dir_a;
+    bool _cue_dir_a;
     bool _has_cassette;
     reverse_mode_t _reverse_mode;
     bool _playing;
@@ -135,7 +141,7 @@ class crp42602y_ctrl {
     void _func_sequence(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
     void _return_sequence() const;
     bool _get_abs_dir(const direction_t dir) const;
-    void _stop() const;
+    void _stop(const direction_t dir);
     void _play(const direction_t dir);
     void _cue(const direction_t dir);
 };
