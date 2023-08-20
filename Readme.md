@@ -18,17 +18,21 @@ Control library for CRP42602Y auto-reverse cassette tape deck mechanism
 ### CRP42602 connector
 | Pico Pin # | GPIO | Function | Connection |
 ----|----|----|----
-| 5 | GP3 | CASSETTE_DETECT | from CRP42602Y pin 7 |
-| 6 | GP4 | FUNC_STATUS_SW | from CRP42602Y pin 3 |
-| 7 | GP5 | ROTATION_SENS | from CRP42602Y pin 2 |
+| 5 | GP3 | GPIO Input | CASSETTE_DETECT from CRP42602Y pin 7 |
+| 6 | GP4 | GPIO Input | FUNC_STATUS_SW from CRP42602Y pin 3 |
+| 7 | GP5 | PWM_B Input | ROTATION_SENS from CRP42602Y pin 2 |
 | 8 | GND | GND | GND |
+
+Pin assignments are configurable
 
 ### CRP42602 control with additional circuit
 | Pico Pin # | GPIO | Function | Connection |
 ----|----|----|----
-| 4 | GP2 | SOLENOID_CTRL | to solenoid control (mandatory) (0: pull, 1: release) |
+| 4 | GP2 | GPIO Output | to SOLENOID_CTRL (mandatory) (0: pull, 1: release) |
 | 8 | GND | GND | GND |
-| 9 | GP6 | POWER_CTRL | to power control (optional) (0: disable, 1: enable) |
+| 9 | GP6 | GPIO Output | to POWER_CTRL (optional) (0: disable, 1: enable) |
+
+Pin assignments are configurable
 
 ## How to build
 * See ["Getting started with Raspberry Pi Pico"](https://datasheets.raspberrypi.org/pico/getting-started-with-pico.pdf)

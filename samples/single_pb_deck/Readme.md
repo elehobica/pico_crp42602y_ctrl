@@ -8,31 +8,38 @@
 ## Supported Board and Peripheral Devices
 * Raspberry Pi Pico (rp2040)
 * CRP42602Y mechanism
-* TA7668BP + CXA1332M board or equivalent EQ + NR circuit
+* TA7668BP + CXA1332M board with customization
+* SSD1306 128x64 OLED display
 
 ## Pin Assignment & Connection
 ### CRP42602 connector
 | Pico Pin # | GPIO | Function | Connection |
 ----|----|----|----
-| 5 | GP3 | CASSETTE_DETECT | from CRP42602Y pin 7 |
-| 6 | GP4 | FUNC_STATUS_SW | from CRP42602Y pin 3 |
-| 7 | GP5 | ROTATION_SENS | from CRP42602Y pin 2 |
+| 5 | GP3 | GPIO Input | CASSETTE_DETECT from CRP42602Y pin 7 |
+| 6 | GP4 | GPIO Input | FUNC_STATUS_SW from CRP42602Y pin 3 |
+| 7 | GP5 | PWM_B Input | ROTATION_SENS from CRP42602Y pin 2 |
 | 8 | GND | GND | GND |
 
 ### CRP42602 control with additional circuit
 | Pico Pin # | GPIO | Function | Connection |
 ----|----|----|----
-| 4 | GP2 | SOLENOID_CTRL | to solenoid control (mandatory) (0: pull, 1: release) |
+| 4 | GP2 | GPIO Output | to SOLENOID_CTRL (0: pull, 1: release) |
 | 8 | GND | GND | GND |
-| 9 | GP6 | POWER_CTRL | to power control (optional) (0: disable, 1: enable) |
+| 9 | GP6 | GPIO Output | to POWER_CTRL (0: disable, 1: enable) |
 
 ### EQ and NR control with additional circuit
 | Pico Pin # | GPIO | Function | Connection |
 ----|----|----|----
-| 10 | GP7 | EQ_CTRL | to EQ control (0: 120us, 1: 70us) |
+| 10 | GP7 | GPIO Output | to EQ_CTRL (0: 120us, 1: 70us) |
 | 13 | GND | GND | GND |
-| 14 | GP10 | NR_CTRL0 | to NR control (0: Dolby B, 1: Dolby C) |
-| 15 | GP11 | NR_CTRL1 | to NR control (0: NR ON, 1: NR OFF) |
+| 14 | GP10 | GPIO Output | to NR_CTRL0 (0: Dolby B, 1: Dolby C) |
+| 15 | GP11 | GPIO Output | to NR_CTRL1 (0: NR ON, 1: NR OFF) |
+
+### SSD1306
+| Pico Pin # | Pin Name | Function | Connection |
+----|----|----|----
+| 11 | GP8 | I2C0 SDA | to/from SSD1306 SDA |
+| 12 | GP9 | I2C0 SCL | to/from SSD1306 SDA |
 
 ### 5 Way switch + 2 buttons
 | Pico Pin # | Pin Name | Function | Connection |
@@ -56,7 +63,7 @@
 * set: NR select
 
 ## Serial interface operation
-* 's': play
+* 's': stop
 * 'p': play
 * 'q': reverse play
 * 'f': fast forward
