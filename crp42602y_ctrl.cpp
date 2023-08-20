@@ -43,7 +43,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _power_enable(true)
 {
     queue_init(&_command_queue, sizeof(command_t), COMMAND_QUEUE_LENGTH);
-    queue_init(&_callback_queue, sizeof(command_t), CALLBACK_QUEUE_LENGTH);
+    queue_init(&_callback_queue, sizeof(callback_type_t), CALLBACK_QUEUE_LENGTH);
     for (int i = 0; i < NUM_COMMAND_HISTORY_REGISTERED; i++) {
         _command_history_registered[i] = VOID_COMMAND;
     }
@@ -230,6 +230,16 @@ crp42602y_ctrl::reverse_mode_t crp42602y_ctrl::get_reverse_mode() const
     return _reverse_mode;
 }
 
+void crp42602y_ctrl::recover_power_from_timeout()
+{
+    _power_off_timeout_count = 0;
+    bool power_enable = _power_enable;
+    _set_power_enable(true);
+    if (!power_enable) {
+        _dispatch_callback(ON_RECOVER_POWER_FROM_TIMEOUT);
+    }
+}
+
 bool crp42602y_ctrl::send_command(const command_t& command)
 {
     // Cancel same repeated command except for DIR_REVERSE
@@ -245,6 +255,18 @@ bool crp42602y_ctrl::send_command(const command_t& command)
         return flag;
     }
     return false;
+}
+
+void crp42602y_ctrl::register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type))
+{
+    _callbacks[callback_type] = func;
+}
+
+void crp42602y_ctrl::register_callback_all(void (*func)(const callback_type_t callback_type))
+{
+    for (int i = 0; i < __NUM_CALLBACKS__; i++) {
+        register_callback((const callback_type_t) i, func);
+    }
 }
 
 void crp42602y_ctrl::process_loop()
@@ -297,36 +319,9 @@ void crp42602y_ctrl::process_loop()
     }
 }
 
-void crp42602y_ctrl::recover_power_from_timeout()
-{
-    _power_off_timeout_count = 0;
-    bool power_enable = _power_enable;
-    _set_power_enable(true);
-    if (!power_enable) {
-        _dispatch_callback(ON_RECOVER_POWER_FROM_TIMEOUT);
-    }
-}
-
-void crp42602y_ctrl::register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type))
-{
-    _callbacks[callback_type] = func;
-}
-
-void crp42602y_ctrl::register_callback_all(void (*func)(const callback_type_t callback_type))
-{
-    for (int i = 0; i < __NUM_CALLBACKS__; i++) {
-        register_callback((const callback_type_t) i, func);
-    }
-}
-
 bool crp42602y_ctrl::_dispatch_callback(const callback_type_t callback_type)
 {
     return queue_try_add(&_callback_queue, &callback_type);
-}
-
-void crp42602y_ctrl::_pull_solenoid(const bool flag) const
-{
-    gpio_put(_pin_solenoid_ctrl, !flag);
 }
 
 void crp42602y_ctrl::_set_power_enable(const bool flag)
@@ -340,6 +335,11 @@ void crp42602y_ctrl::_set_power_enable(const bool flag)
 bool crp42602y_ctrl::_get_power_enable() const
 {
     return _power_enable;
+}
+
+void crp42602y_ctrl::_pull_solenoid(const bool flag) const
+{
+    gpio_put(_pin_solenoid_ctrl, !flag);
 }
 
 bool crp42602y_ctrl::_is_gear_in_func() const

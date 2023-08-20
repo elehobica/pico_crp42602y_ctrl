@@ -3,7 +3,12 @@
 ## Single PB deck project
 * support single deck (play back only)
 * control by 5 Way Switch + 2 Buttons and serial interface
-* support EQ and NR control for pre-amp
+* support EQ and NR control
+
+## Supported Board and Peripheral Devices
+* Raspberry Pi Pico (rp2040)
+* CRP42602Y mechanism
+* TA7668BP + CXA1332M board or equivalent EQ + NR circuit
 
 ## Pin Assignment & Connection
 ### CRP42602 connector

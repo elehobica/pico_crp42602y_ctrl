@@ -1,8 +1,14 @@
 # Raspberry Pi Pico CRP42602Y mechanism control
 
 ## Overview
-* Control firmware for CRP42602Y auto-reverse cassette tape deck mechanism
+Control library for CRP42602Y auto-reverse cassette tape deck mechanism
+
+### Features
 * Generate solenoid control timing for function gear of CRP42602Y 
+* Play A/B, Stop, Cueing control
+* Commands and callbacks for user interface
+* 3 auto-reverse modes (One way, One round and Infinite round)
+* Timeout power disable (for motor) when no operations (optional)
 
 ## Supported Board and Peripheral Devices
 * Raspberry Pi Pico (rp2040)
@@ -12,7 +18,6 @@
 ### CRP42602 connector
 | Pico Pin # | GPIO | Function | Connection |
 ----|----|----|----
-| 4 | GP2 | SOLENOID_CTRL | to solenoid control (0: pull, 1: release) |
 | 5 | GP3 | CASSETTE_DETECT | from CRP42602Y pin 7 |
 | 6 | GP4 | FUNC_STATUS_SW | from CRP42602Y pin 3 |
 | 7 | GP5 | ROTATION_SENS | from CRP42602Y pin 2 |

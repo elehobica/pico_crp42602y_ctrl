@@ -10,6 +10,7 @@
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
 #include "hardware/pwm.h"
+#include "pico/util/queue.h"
 
 #include "Buttons.h"
 #include "crp42602y_ctrl.h"
@@ -53,7 +54,8 @@ static uint32_t t = 0;
 
 static bool _has_cassette = false;
 static bool _crp42602y_power = true;
-static bool _callback_flag[crp42602y_ctrl::__NUM_CALLBACKS__];
+static queue_t _callback_queue;
+static constexpr int CALLBACK_QUEUE_LENGTH = 16;
 
 static button_t btns_5way_tactile_plus2[] = {
     {"reset",  PIN_RESET_BUTTON,  &Buttons::DEFAULT_BUTTON_SINGLE_CONFIG},
@@ -89,7 +91,6 @@ const uint8_t font_reverse_mode[] =
     // Infinite Round
     0x00,0x00,0xC0,0x03,0x20,0x04,0x10,0x08,0x10,0x1C,0x10,0x3E,0x10,0x7F,0x10,0x08,
     0x10,0x08,0xFE,0x08,0x7C,0x08,0x38,0x08,0x10,0x08,0x20,0x04,0xC0,0x03,0x00,0x00
-
 };
 
 static inline uint64_t _micros(void)
@@ -190,39 +191,26 @@ static bool periodic_func(repeating_timer_t *rt)
 
 static void stop()
 {
-    if (crp42602y_ctrl0->send_command(crp42602y_ctrl::STOP_COMMAND)) {
-        printf("Stop\r\n");
-    }
+    crp42602y_ctrl0->send_command(crp42602y_ctrl::STOP_COMMAND);
 }
 
 static void play(bool nonReverse)
 {
-    bool head_dir_a = crp42602y_ctrl0->get_head_dir_a();
     if (nonReverse) {
-        if (crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_COMMAND)) {
-            printf("Play %c\r\n", head_dir_a ? 'A' : 'B');
-        }
+        crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_COMMAND);
     } else {
-        if (crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_REVERSE_COMMAND)) {
-            printf("Play %c\r\n", !head_dir_a ? 'A' : 'B');  // opposite to current
-        }
+        crp42602y_ctrl0->send_command(crp42602y_ctrl::PLAY_REVERSE_COMMAND);
     }
 }
 
-static void fwd()
+static void fast_forward()
 {
-    bool head_dir_a = crp42602y_ctrl0->get_head_dir_a();
-    if (crp42602y_ctrl0->send_command(crp42602y_ctrl::FF_COMMAND)) {
-        printf("Fwd (%s)\r\n", head_dir_a ? "fwd A" : "rwd B");
-    }
+    crp42602y_ctrl0->send_command(crp42602y_ctrl::FF_COMMAND);
 }
 
-static void rwd()
+static void rewind()
 {
-    bool head_dir_a = crp42602y_ctrl0->get_head_dir_a();
-    if (crp42602y_ctrl0->send_command(crp42602y_ctrl::REW_COMMAND)) {
-        printf("Rwd (%s)\r\n", head_dir_a ? "rwd A" : "fwd B");
-    }
+    crp42602y_ctrl0->send_command(crp42602y_ctrl::REW_COMMAND);
 }
 
 static void crp42602y_process()
@@ -235,16 +223,19 @@ static void crp42602y_process()
 
 void crp42602y_callback(const crp42602y_ctrl::callback_type_t callback_type)
 {
-    _callback_flag[(int) callback_type] = true;
+    if (!queue_try_add(&_callback_queue, &callback_type)) {
+        printf("ERROR: _callback_queue is full\r\n");
+    }
 }
 
-bool crp42602y_get_flag(const crp42602y_ctrl::callback_type_t callback_type)
+bool crp42602y_get_callback(crp42602y_ctrl::callback_type_t* callback_type)
 {
-    if (_callback_flag[(int) callback_type]) {
-        _callback_flag[(int) callback_type] = false;
+    if (queue_get_level(&_callback_queue) > 0) {
+        queue_remove_blocking(&_callback_queue, callback_type);
         return true;
+    } else {
+        return false;
     }
-    return false;
 }
 
 void inc_head_dir(bool inc = true)
@@ -254,8 +245,8 @@ void inc_head_dir(bool inc = true)
     if (inc) {
         head_dir_a = !head_dir_a;
         head_dir_a = crp42602y_ctrl0->set_head_dir_a(head_dir_a);
+        printf("head dir %c\r\n", head_dir_a ? 'A' : 'B');
     }
-    printf("head dir %c\r\n", head_dir_a ? 'A' : 'B');
 }
 
 void inc_reverse_mode(bool inc = true)
@@ -268,19 +259,19 @@ void inc_reverse_mode(bool inc = true)
             reverse_mode = crp42602y_ctrl::RVS_ONE_WAY;
         }
         crp42602y_ctrl0->set_reverse_mode(reverse_mode);
-    }
-    switch (reverse_mode) {
-    case crp42602y_ctrl::RVS_ONE_WAY:
-        printf("Reverse mode: One way\r\n");
-        break;
-    case crp42602y_ctrl::RVS_ONE_ROUND:
-        printf("Reverse mode: One round\r\n");
-        break;
-    case crp42602y_ctrl::RVS_INFINITE_ROUND:
-        printf("Reverse mode: Infinite round\r\n");
-        break;
-    default:
-        break;
+        switch (reverse_mode) {
+        case crp42602y_ctrl::RVS_ONE_WAY:
+            printf("Reverse mode: One way\r\n");
+            break;
+        case crp42602y_ctrl::RVS_ONE_ROUND:
+            printf("Reverse mode: One round\r\n");
+            break;
+        case crp42602y_ctrl::RVS_INFINITE_ROUND:
+            printf("Reverse mode: Infinite round\r\n");
+            break;
+        default:
+            break;
+        }
     }
     _ssd1306_clear_square(&disp, 0, 64-16, 16, 16);
     ssd1306_draw_char_with_font(&disp, 0, 64-16, 1, font_reverse_mode, reverse_mode);
@@ -297,6 +288,17 @@ void inc_eq(bool inc = true)
             eq_type = eq_nr::EQ_120US;
         }
         eq_nr0->set_eq_type(eq_type);
+        switch (eq_type) {
+        case eq_nr::EQ_120US:
+            printf("EQ: 120us\r\n");
+            break;
+        case eq_nr::EQ_70US:
+            printf("EQ: 70us\r\n");
+            break;
+        default:
+            printf("EQ: 120us\r\n");
+            break;
+        }
     }
     const int n = 6;
     const uint32_t sx = 128-6*n;
@@ -304,15 +306,12 @@ void inc_eq(bool inc = true)
     _ssd1306_clear_square(&disp, sx, sy, 6*n, 8);
     switch (eq_type) {
     case eq_nr::EQ_120US:
-        printf("EQ: 120us\r\n");
         ssd1306_draw_string(&disp, sx, sy, 1, "120 uS");
         break;
     case eq_nr::EQ_70US:
-        printf("EQ: 70us\r\n");
         ssd1306_draw_string(&disp, sx, sy, 1, " 70 uS");
         break;
     default:
-        printf("EQ: 120us\r\n");
         ssd1306_draw_string(&disp, sx, sy, 1, "120 uS");
         break;
     }
@@ -329,6 +328,20 @@ void inc_nr(bool inc = true)
             nr_type = eq_nr::NR_OFF;
         }
         eq_nr0->set_nr_type(nr_type);
+        switch (nr_type) {
+        case eq_nr::NR_OFF:
+            printf("NR: OFF\r\n");
+            break;
+        case eq_nr::DOLBY_B:
+            printf("NR: Dolby B\r\n");
+            break;
+        case eq_nr::DOLBY_C:
+            printf("NR: Dolby C\r\n");
+            break;
+        default:
+            printf("NR: OFF\r\n");
+            break;
+        }
     }
     const int n = 7;
     const uint32_t sx = 128-6*n;
@@ -336,19 +349,15 @@ void inc_nr(bool inc = true)
     _ssd1306_clear_square(&disp, sx, sy, 6*n, 8);
     switch (nr_type) {
     case eq_nr::NR_OFF:
-        printf("NR: OFF\r\n");
         ssd1306_draw_string(&disp, sx, sy, 1, " NR OFF");
         break;
     case eq_nr::DOLBY_B:
-        printf("NR: Dolby B\r\n");
         ssd1306_draw_string(&disp, sx, sy, 1, "Dolby B");
         break;
     case eq_nr::DOLBY_C:
-        printf("NR: Dolby C\r\n");
         ssd1306_draw_string(&disp, sx, sy, 1, "Dolby C");
         break;
     default:
-        printf("NR: OFF\r\n");
         ssd1306_draw_string(&disp, sx, sy, 1, "NR OFF");
         break;
     }
@@ -361,7 +370,7 @@ void disp_default_contents()
     if (_has_cassette) {
         _ssd1306_draw_stop_arrow(&disp, crp42602y_ctrl0->get_head_dir_a());
     } else {
-        ssd1306_draw_string(&disp, 40, 32-4, 1, "NO CASSETTE");
+        ssd1306_draw_string(&disp, 32, 32-4, 1, "NO CASSETTE");
     }
 
     _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
@@ -407,6 +416,7 @@ int main()
     buttons = new Buttons(btns_5way_tactile_plus2, sizeof(btns_5way_tactile_plus2) / sizeof(button_t));
 
     // CRP42602Y_CTRL
+    queue_init(&_callback_queue, sizeof(crp42602y_ctrl::callback_type_t), CALLBACK_QUEUE_LENGTH);
     crp42602y_ctrl0 = new crp42602y_ctrl(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL, PIN_POWER_CTRL);
     crp42602y_ctrl0->register_callback_all(crp42602y_callback);
 
@@ -446,8 +456,8 @@ int main()
             if (c == 's') stop();
             if (c == 'p') play(true);
             if (c == 'q') play(false);
-            if (c == 'f') fwd();
-            if (c == 'r') rwd();
+            if (c == 'f') fast_forward();
+            if (c == 'r') rewind();
             if (c == 'd') inc_head_dir();
             if (c == 'v') inc_reverse_mode();
             if (c == 'e') inc_eq();
@@ -469,9 +479,9 @@ int main()
                             play(true);
                         }
                     } else if (strncmp(btnEvent.button_name, "down", 4) == 0) {
-                        fwd();
+                        fast_forward();
                     } else if (strncmp(btnEvent.button_name, "up", 2) == 0) {
-                        rwd();
+                        rewind();
                     } else if (strncmp(btnEvent.button_name, "right", 5) == 0) {
                         inc_head_dir(_crp42602y_power && _has_cassette);
                     } else if (strncmp(btnEvent.button_name, "left", 4) == 0) {
@@ -500,85 +510,96 @@ int main()
             }
         }
 
-        // Callbacks
-        if (crp42602y_get_flag(crp42602y_ctrl::ON_GEAR_ERROR)) {
-            printf("Gear error\r\n");
-            prev_disp_time = 0;
-        }
-        if (crp42602y_get_flag(crp42602y_ctrl::ON_CASSETTE_SET)) {
-            printf("Cassette set\r\n");
-            _has_cassette = true;
-            prev_disp_time = 0;
-            crp42602y_ctrl0->recover_power_from_timeout();
-        }
-        if (crp42602y_get_flag(crp42602y_ctrl::ON_CASSETTE_EJECT)) {
-            printf("Cassette eject\r\n");
-            _has_cassette = false;
-            prev_disp_time = 0;
-        }
-        if (crp42602y_get_flag(crp42602y_ctrl::ON_STOP)) {
-            printf("Stopped\r\n");
-            _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
-            ssd1306_draw_string(&disp, 0, 0, 1, "STOP");
-            ssd1306_show(&disp);
-            prev_disp_time = 0;
-        }
-        if (crp42602y_get_flag(crp42602y_ctrl::ON_PLAY)) {
-            _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
-            if (crp42602y_ctrl0->get_head_dir_a()) {
-                ssd1306_draw_string(&disp, 0, 0, 1, "PLAY A");
-            } else {
-                ssd1306_draw_string(&disp, 0, 0, 1, "PLAY B");
+        // Process callback
+        crp42602y_ctrl::callback_type_t callback_type;
+        while (crp42602y_get_callback(&callback_type)) {
+            switch (callback_type) {
+            case crp42602y_ctrl::ON_GEAR_ERROR:
+                printf("Gear error\r\n");
+                prev_disp_time = 0;
+                break;
+            case crp42602y_ctrl::ON_CASSETTE_SET:
+                printf("Cassette set\r\n");
+                _has_cassette = true;
+                prev_disp_time = 0;
+                crp42602y_ctrl0->recover_power_from_timeout();
+                break;
+            case crp42602y_ctrl::ON_CASSETTE_EJECT:
+                printf("Cassette eject\r\n");
+                _has_cassette = false;
+                prev_disp_time = 0;
+                break;
+            case crp42602y_ctrl::ON_STOP:
+                printf("Stop\r\n");
+                _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
+                ssd1306_draw_string(&disp, 0, 0, 1, "STOP");
+                ssd1306_show(&disp);
+                prev_disp_time = 0;
+                break;
+            case crp42602y_ctrl::ON_PLAY:
+                _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
+                if (crp42602y_ctrl0->get_head_dir_a()) {
+                    printf("Play A\r\n");
+                    ssd1306_draw_string(&disp, 0, 0, 1, "PLAY A");
+                } else {
+                    printf("Play B\r\n");
+                    ssd1306_draw_string(&disp, 0, 0, 1, "PLAY B");
+                }
+                ssd1306_show(&disp);
+                prev_disp_time = 0;
+                break;
+            case crp42602y_ctrl::ON_CUE:
+                _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
+                if (crp42602y_ctrl0->get_cue_dir_a()) {
+                    printf("FF\r\n");
+                    ssd1306_draw_string(&disp, 0, 0, 1, "FF");
+                } else {
+                    printf("REW\r\n");
+                    ssd1306_draw_string(&disp, 0, 0, 1, "REW");
+                }
+                ssd1306_show(&disp);
+                prev_disp_time = 0;
+                break;
+            case crp42602y_ctrl::ON_REVERSE:
+                printf("Reversed\r\n");
+                _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
+                if (crp42602y_ctrl0->get_head_dir_a()) {
+                    printf("Play A\r\n");
+                    ssd1306_draw_string(&disp, 0, 0, 1, "Play A");
+                } else {
+                    printf("Play B\r\n");
+                    ssd1306_draw_string(&disp, 0, 0, 1, "Play B");
+                }
+                ssd1306_show(&disp);
+                prev_disp_time = 0;
+                break;
+            case crp42602y_ctrl::ON_TIMEOUT_POWER_OFF:
+                printf("Power off\r\n");
+                ssd1306_clear(&disp);
+                ssd1306_show(&disp);
+                _crp42602y_power = false;
+                prev_disp_time = 0;
+                break;
+            case crp42602y_ctrl::ON_RECOVER_POWER_FROM_TIMEOUT:
+                printf("Power recover\r\n");
+                disp_default_contents();
+                _crp42602y_power = true;
+                prev_disp_time = 0;
+                break;
             }
-            ssd1306_show(&disp);
-            prev_disp_time = 0;
-        }
-        if (crp42602y_get_flag(crp42602y_ctrl::ON_CUE)) {
-            _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
-            if (crp42602y_ctrl0->get_cue_dir_a()) {
-                ssd1306_draw_string(&disp, 0, 0, 1, "FF");
-            } else {
-                ssd1306_draw_string(&disp, 0, 0, 1, "REW");
-            }
-            ssd1306_show(&disp);
-            prev_disp_time = 0;
-        }
-        if (crp42602y_get_flag(crp42602y_ctrl::ON_REVERSE)) {
-            printf("Reversed\r\n");
-            _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
-            if (crp42602y_ctrl0->get_head_dir_a()) {
-                ssd1306_draw_string(&disp, 0, 0, 1, "Play A");
-            } else {
-                ssd1306_draw_string(&disp, 0, 0, 1, "Play B");
-            }
-            ssd1306_show(&disp);
-            prev_disp_time = 0;
-        }
-        if (crp42602y_get_flag(crp42602y_ctrl::ON_TIMEOUT_POWER_OFF)) {
-            printf("Power off\r\n");
-            ssd1306_clear(&disp);
-            ssd1306_show(&disp);
-            _crp42602y_power = false;
-            prev_disp_time = 0;
-        }
-        if (crp42602y_get_flag(crp42602y_ctrl::ON_RECOVER_POWER_FROM_TIMEOUT)) {
-            printf("Power recover\r\n");
-            disp_default_contents();
-            _crp42602y_power = true;
-            prev_disp_time = 0;
         }
 
         // Image Display
-        if (now_time - prev_disp_time > 100) {
+        if (now_time - prev_disp_time > 50) {
             if (_crp42602y_power) {
                 if (!_has_cassette) {
                     _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
-                    ssd1306_draw_string(&disp, 40, 32-4, 1, "NO CASSETTE");
+                    ssd1306_draw_string(&disp, 32, 32-4, 1, "NO CASSETTE");
                     ssd1306_show(&disp);
                     disp_count = 0;
                 } else {
                     if (crp42602y_ctrl0->is_playing()) {
-                        uint32_t pos = disp_count/2 % 16;
+                        uint32_t pos = disp_count/4 % 16;
                         _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
                         _ssd1306_draw_play_arrow(&disp, crp42602y_ctrl0->get_head_dir_a(), pos);
                         ssd1306_show(&disp);

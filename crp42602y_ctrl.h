@@ -91,11 +91,11 @@ class crp42602y_ctrl {
     bool get_cue_dir_a() const;
     void set_reverse_mode(const reverse_mode_t mode);
     reverse_mode_t get_reverse_mode() const;
-    bool send_command(const command_t& command);
-    void process_loop();
     void recover_power_from_timeout();
+    bool send_command(const command_t& command);
     void register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type));
     void register_callback_all(void (*func)(const callback_type_t callback_type));
+    void process_loop();
 
     private:
     uint _pin_cassette_detect;
@@ -124,7 +124,6 @@ class crp42602y_ctrl {
     bool _cur_reel_fwd;
     bool _power_enable;
 
-
     queue_t   _command_queue;
     queue_t   _callback_queue;
     command_t _command_history_registered[NUM_COMMAND_HISTORY_REGISTERED];
@@ -134,9 +133,9 @@ class crp42602y_ctrl {
     void (*_callbacks[__NUM_CALLBACKS__])(const callback_type_t callback_type);
 
     bool _dispatch_callback(const callback_type_t callback_type);
-    void _pull_solenoid(const bool flag) const;
     void _set_power_enable(const bool flag);
     bool _get_power_enable() const;
+    void _pull_solenoid(const bool flag) const;
     bool _is_gear_in_func() const;
     void _store_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
     bool _equal_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd) const;
