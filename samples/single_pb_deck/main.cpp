@@ -19,13 +19,15 @@ extern "C" {
 #include "ssd1306.h"
 }
 
-static constexpr uint PIN_LED             = PICO_DEFAULT_LED_PIN;
+static constexpr uint PIN_LED = PICO_DEFAULT_LED_PIN;
+
 // CRP42602Y control pins
 static constexpr uint PIN_SOLENOID_CTRL   = 2;
 static constexpr uint PIN_CASSETTE_DETECT = 3;
 static constexpr uint PIN_GEAR_STATUS_SW  = 4;
 static constexpr uint PIN_ROTATION_SENS   = 5;  // This needs to be PWM_B pin
 static constexpr uint PIN_POWER_CTRL      = 6;
+
 // EQ NR control pins
 static constexpr uint PIN_EQ_CTRL  = 7;
 static constexpr uint PIN_NR_CTRL0 = 10;
@@ -49,8 +51,8 @@ static repeating_timer_t timer;
 static constexpr int INTERVAL_MS_BUTTONS_CHECK = 50;
 static constexpr int INTERVAL_MS_CRP42602Y_CTRL_FUNC = 100;  // > INTERVAL_MS_BUTTONS_CHECK
 
-static uint32_t count = 0;
-static uint32_t t = 0;
+static uint32_t _count = 0;
+//static uint32_t _t = 0;
 
 static bool _has_cassette = false;
 static bool _crp42602y_power = true;
@@ -176,16 +178,16 @@ static bool periodic_func(repeating_timer_t *rt)
     if (buttons != nullptr) {
         //uint64_t t0 = _micros();
         buttons->scan_periodic();
-        //t = (uint32_t) (_micros() - t0);
+        //_t = (uint32_t) (_micros() - t0);
     }
-    if (count % (INTERVAL_MS_CRP42602Y_CTRL_FUNC / INTERVAL_MS_BUTTONS_CHECK) == 0) {
+    if (_count % (INTERVAL_MS_CRP42602Y_CTRL_FUNC / INTERVAL_MS_BUTTONS_CHECK) == 0) {
         if (crp42602y_ctrl0 != nullptr) {
             //uint64_t t0 = _micros();
             crp42602y_ctrl0->periodic_func_100ms();
-            //t = (uint32_t) (_micros() - t0);
+            //_t = (uint32_t) (_micros() - t0);
         }
     }
-    count++;
+    _count++;
     return true; // keep repeating
 }
 
@@ -274,7 +276,7 @@ void inc_reverse_mode(bool inc = true)
         }
     }
     _ssd1306_clear_square(&disp, 0, 64-16, 16, 16);
-    ssd1306_draw_char_with_font(&disp, 0, 64-16, 1, font_reverse_mode, reverse_mode);
+    ssd1306_draw_char_with_font(&disp, 0, 64-16, 1, font_reverse_mode, (char) reverse_mode);
     ssd1306_show(&disp);
 }
 
