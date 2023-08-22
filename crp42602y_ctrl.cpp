@@ -399,6 +399,7 @@ bool crp42602y_ctrl::_gear_func_sequence(const bool head_dir_a, const bool lift_
     _pull_solenoid(reel_fwd);
     sleep_ms(tReelE - tLiftHeadE);
     _pull_solenoid(false);
+    sleep_ms(20);  // additional margin
 
     if (!_gear_is_in_func()) {
         _dispatch_callback(ON_GEAR_ERROR);
