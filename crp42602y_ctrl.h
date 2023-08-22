@@ -37,7 +37,7 @@ class crp42602y_ctrl {
     static constexpr int ROTATION_SENS_STOP_DETECT_MS = 1000;
     static constexpr int NUM_COMMAND_HISTORY_REGISTERED = 1;
     static constexpr int NUM_COMMAND_HISTORY_ISSUED = 2;
-    // Internal command
+    // Internal commands
     static constexpr command_t VOID_COMMAND         = {CMD_TYPE_NONE, DIR_KEEP};
     static constexpr command_t STOP_REVERSE_COMMAND = {CMD_TYPE_STOP, DIR_REVERSE};
 
@@ -112,6 +112,7 @@ class crp42602y_ctrl {
     bool _head_dir_a;
     bool _cue_dir_a;
     bool _has_cassette;
+    bool _prev_has_cassette;
     reverse_mode_t _reverse_mode;
     bool _playing;
     bool _cueing;
@@ -136,11 +137,11 @@ class crp42602y_ctrl {
     void _set_power_enable(const bool flag);
     bool _get_power_enable() const;
     void _pull_solenoid(const bool flag) const;
-    bool _is_gear_in_func() const;
-    void _store_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
-    bool _equal_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd) const;
-    bool _func_sequence(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
-    bool _return_sequence();
+    bool _gear_is_in_func() const;
+    void _gear_store_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
+    bool _gear_is_equal_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd) const;
+    bool _gear_func_sequence(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
+    bool _gear_return_sequence();
     bool _get_abs_dir(const direction_t dir) const;
     bool _stop(const direction_t dir);
     bool _play(const direction_t dir);

@@ -30,6 +30,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _head_dir_a(true),
     _cue_dir_a(true),
     _has_cassette(false),
+    _prev_has_cassette(false),
     _reverse_mode(RVS_ONE_ROUND),
     _playing(false),
     _cueing(false),
@@ -93,22 +94,21 @@ crp42602y_ctrl::~crp42602y_ctrl()
 
 void crp42602y_ctrl::periodic_func_100ms()
 {
-    static bool _prev_has_cussette = false;
     _has_cassette = !gpio_get(_pin_cassette_detect);
 
     // Cassette set/eject detection
-    if (!_prev_has_cussette && _has_cassette) {
+    if (!_prev_has_cassette && _has_cassette) {
         _dispatch_callback(ON_CASSETTE_SET);
-    } else if (_prev_has_cussette && !_has_cassette) {
+    } else if (_prev_has_cassette && !_has_cassette) {
         _dispatch_callback(ON_CASSETTE_EJECT);
-        if (_is_gear_in_func()) {
+        if (_gear_is_in_func()) {
             send_command(STOP_COMMAND);
         }
     }
-    _prev_has_cussette = _has_cassette;
+    _prev_has_cassette = _has_cassette;
 
     // Timeout power off (for mechanism)
-    if (_is_gear_in_func()) {
+    if (_gear_is_in_func()) {
         _power_off_timeout_count = 0;
     } else if (_power_off_timeout_count > POWER_OFF_TIMEOUT_SEC * 1000 / PERIODIC_FUNC_MS) {
         _power_off_timeout_count = 0;
@@ -121,7 +121,7 @@ void crp42602y_ctrl::periodic_func_100ms()
     uint16_t rot_count = pwm_get_counter(_pwm_slice_num);
     bool rotating = true;
 
-    if (!_is_gear_in_func()) {
+    if (!_gear_is_in_func()) {
         _rot_stop_ignore_count = 0;
     } else {
         // loop for early rotation stop detection when cueing
@@ -166,6 +166,7 @@ void crp42602y_ctrl::periodic_func_100ms()
                 if (_head_dir_a) {
                     send_command(PLAY_REVERSE_COMMAND);
                 } else {
+                    // It is expected to play A at next time after one round stops
                     send_command(STOP_REVERSE_COMMAND);
                 }
             } else {
@@ -204,7 +205,7 @@ bool crp42602y_ctrl::is_cueing() const
 bool crp42602y_ctrl::set_head_dir_a(const bool head_dir_a)
 {
     // ignore when in func
-    if (!_is_gear_in_func()) {
+    if (!_gear_is_in_func()) {
         _head_dir_a = head_dir_a;
     }
     return _head_dir_a;
@@ -314,8 +315,9 @@ void crp42602y_ctrl::process_loop()
     while (queue_get_level(&_callback_queue) > 0) {
         callback_type_t callback_type;
         queue_remove_blocking(&_callback_queue, &callback_type);
-        if (_callbacks[callback_type] == nullptr) continue;
-        _callbacks[callback_type](callback_type);
+        if (_callbacks[callback_type] != nullptr) {
+            _callbacks[callback_type](callback_type);
+        }
     }
 }
 
@@ -342,12 +344,12 @@ void crp42602y_ctrl::_pull_solenoid(const bool flag) const
     gpio_put(_pin_solenoid_ctrl, !flag);
 }
 
-bool crp42602y_ctrl::_is_gear_in_func() const
+bool crp42602y_ctrl::_gear_is_in_func() const
 {
     return !gpio_get(_pin_gear_status_sw) && _power_enable;
 }
 
-void crp42602y_ctrl::_store_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd)
+void crp42602y_ctrl::_gear_store_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd)
 {
     _has_cur_gear_status = true;
     _cur_head_dir_a = head_dir_a;
@@ -355,17 +357,17 @@ void crp42602y_ctrl::_store_gear_status(const bool head_dir_a, const bool lift_h
     _cur_reel_fwd = reel_fwd;
 }
 
-bool crp42602y_ctrl::_equal_gear_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd) const
+bool crp42602y_ctrl::_gear_is_equal_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd) const
 {
     return _has_cur_gear_status == true &&
         _cur_head_dir_a == head_dir_a && _cur_lift_head == lift_head && _cur_reel_fwd == reel_fwd;
 }
 
-bool crp42602y_ctrl::_func_sequence(const bool head_dir_a, const bool lift_head, const bool reel_fwd)
+bool crp42602y_ctrl::_gear_func_sequence(const bool head_dir_a, const bool lift_head, const bool reel_fwd)
 {
     constexpr uint32_t tWaitMotorStable = 500;
 
-    // release power disable if needed
+    // recover power if disabled
     if (!_power_enable) {
         recover_power_from_timeout();
         sleep_ms(tWaitMotorStable);
@@ -397,16 +399,16 @@ bool crp42602y_ctrl::_func_sequence(const bool head_dir_a, const bool lift_head,
     sleep_ms(tReelE - tLiftHeadE);
     _pull_solenoid(false);
 
-    if (!_is_gear_in_func()) {
+    if (!_gear_is_in_func()) {
         _dispatch_callback(ON_GEAR_ERROR);
         return false;
     }
 
-    _store_gear_status(head_dir_a, lift_head, reel_fwd);
+    _gear_store_status(head_dir_a, lift_head, reel_fwd);
     return true;
 }
 
-bool crp42602y_ctrl::_return_sequence()
+bool crp42602y_ctrl::_gear_return_sequence()
 {
     // Return sequence has (360 - 190) degree of function gear,
     //  which is needed to take another function when the gear is already in function position
@@ -417,7 +419,7 @@ bool crp42602y_ctrl::_return_sequence()
     sleep_ms(340);
     sleep_ms(20);  // additional margin
 
-    if (_is_gear_in_func()) {
+    if (_gear_is_in_func()) {
         _dispatch_callback(ON_GEAR_ERROR);
         return false;
     }
@@ -450,8 +452,8 @@ bool crp42602y_ctrl::_get_abs_dir(direction_t dir) const
 
 bool crp42602y_ctrl::_stop(direction_t dir)
 {
-    if (_is_gear_in_func()) {
-        if (!_return_sequence()) return false;
+    if (_gear_is_in_func()) {
+        if (!_gear_return_sequence()) return false;
     }
     if (dir == DIR_REVERSE) _head_dir_a = !_head_dir_a;
     return true;
@@ -460,22 +462,22 @@ bool crp42602y_ctrl::_stop(direction_t dir)
 bool crp42602y_ctrl::_play(direction_t dir)
 {
     _head_dir_a = _get_abs_dir(dir);
-    if (_is_gear_in_func()) {
-        if (_equal_gear_status(_head_dir_a, true, _head_dir_a)) return false;
-        if (!_return_sequence()) return false;
+    if (_gear_is_in_func()) {
+        if (_gear_is_equal_status(_head_dir_a, true, _head_dir_a)) return false;
+        if (!_gear_return_sequence()) return false;
     }
     if (!_has_cassette) return false;
-    return _func_sequence(_head_dir_a, true, _head_dir_a);
+    return _gear_func_sequence(_head_dir_a, true, _head_dir_a);
 }
 
 bool crp42602y_ctrl::_cue(direction_t dir)
 {
     _cue_dir_a = _get_abs_dir(dir);
-    if (_is_gear_in_func()) {
-        if (_equal_gear_status(_head_dir_a, false, _cue_dir_a)) return false;
-        if (!_return_sequence()) return false;
+    if (_gear_is_in_func()) {
+        if (_gear_is_equal_status(_head_dir_a, false, _cue_dir_a)) return false;
+        if (!_gear_return_sequence()) return false;
     }
     if (!_has_cassette) return false;
     // Evacuate head, however note that the head direction still matters for which side the head is tracing,
-    return _func_sequence(_head_dir_a, false, _cue_dir_a);
+    return _gear_func_sequence(_head_dir_a, false, _cue_dir_a);
 }
