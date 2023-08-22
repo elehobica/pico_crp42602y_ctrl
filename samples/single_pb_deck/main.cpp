@@ -520,6 +520,10 @@ int main()
                 printf("Gear error\r\n");
                 prev_disp_time = 0;
                 break;
+            case crp42602y_ctrl::ON_COMMAND_FIFO_OVERFLOW:
+                printf("Command FIFO overflow\r\n");
+                prev_disp_time = 0;
+                break;
             case crp42602y_ctrl::ON_CASSETTE_SET:
                 printf("Cassette set\r\n");
                 _has_cassette = true;

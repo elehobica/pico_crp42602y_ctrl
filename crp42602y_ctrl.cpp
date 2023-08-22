@@ -247,15 +247,16 @@ bool crp42602y_ctrl::send_command(const command_t& command)
     if (_command_history_registered[0].type == command.type && _command_history_registered[0].dir == command.dir && command.dir != DIR_REVERSE)
         return false;
 
-    if (queue_get_level(&_command_queue) < COMMAND_QUEUE_LENGTH) {
-        bool flag = queue_try_add(&_command_queue, &command);
+    if (queue_try_add(&_command_queue, &command)) {
         for (int i = NUM_COMMAND_HISTORY_REGISTERED - 1; i >= 1; i--) {
             _command_history_registered[i] = _command_history_registered[i - 1];
         }
         _command_history_registered[0] = command;
-        return flag;
+        return true;
+    } else {
+        _dispatch_callback(ON_COMMAND_FIFO_OVERFLOW);
+        return false;
     }
-    return false;
 }
 
 void crp42602y_ctrl::register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type))
