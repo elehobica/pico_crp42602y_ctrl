@@ -125,14 +125,14 @@ class crp42602y_ctrl {
     bool _cur_lift_head;
     bool _cur_reel_fwd;
     bool _power_enable;
+    uint16_t  _rot_count_history[ROTATION_SENS_STOP_DETECT_MS / PERIODIC_FUNC_MS];
 
-    queue_t   _command_queue;
-    queue_t   _callback_queue;
     command_t _command_history_registered[NUM_COMMAND_HISTORY_REGISTERED];
     command_t _command_history_issued[NUM_COMMAND_HISTORY_ISSUED];
-    uint      _pwm_slice_num;
-    uint16_t  _rot_count_history[ROTATION_SENS_STOP_DETECT_MS / PERIODIC_FUNC_MS];
     void (*_callbacks[__NUM_CALLBACKS__])(const callback_type_t callback_type);
+    queue_t   _command_queue;
+    queue_t   _callback_queue;
+    uint      _pwm_slice_num;
 
     bool _dispatch_callback(const callback_type_t callback_type);
     void _set_power_enable(const bool flag);

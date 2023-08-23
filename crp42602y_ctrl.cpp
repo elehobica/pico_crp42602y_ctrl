@@ -41,24 +41,21 @@ crp42602y_ctrl::crp42602y_ctrl(
     _cur_head_dir_a(false),
     _cur_lift_head(false),
     _cur_reel_fwd(false),
-    _power_enable(true)
+    _power_enable(true),
+    _rot_count_history{}
 {
-    queue_init(&_command_queue, sizeof(command_t), COMMAND_QUEUE_LENGTH);
-    queue_init(&_callback_queue, sizeof(callback_type_t), CALLBACK_QUEUE_LENGTH);
     for (int i = 0; i < NUM_COMMAND_HISTORY_REGISTERED; i++) {
         _command_history_registered[i] = VOID_COMMAND;
     }
     for (int i = 0; i < NUM_COMMAND_HISTORY_ISSUED; i++) {
         _command_history_issued[i] = VOID_COMMAND;
     }
-
-    for (int i = 0; i < sizeof(_rot_count_history) / sizeof(uint16_t); i++) {
-        _rot_count_history[i] = 0;
-    }
-
     for (int i = 0; i < __NUM_CALLBACKS__; i++) {
         _callbacks[i] = nullptr;
     }
+
+    queue_init(&_command_queue, sizeof(command_t), COMMAND_QUEUE_LENGTH);
+    queue_init(&_callback_queue, sizeof(callback_type_t), CALLBACK_QUEUE_LENGTH);
 
     // PWM setting for _pin_rotation_sens
     gpio_set_function(_pin_rotation_sens, GPIO_FUNC_PWM);
