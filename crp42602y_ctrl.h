@@ -34,6 +34,7 @@ class crp42602y_ctrl {
     static constexpr int COMMAND_QUEUE_LENGTH = 4;
     static constexpr int CALLBACK_QUEUE_LENGTH = 4;
     static constexpr int PERIODIC_FUNC_MS = 100;
+    static constexpr int SW_FILTER_MS = 300;
     static constexpr int ROTATION_SENS_STOP_DETECT_MS = 1000;
     static constexpr int NUM_COMMAND_HISTORY_REGISTERED = 1;
     static constexpr int NUM_COMMAND_HISTORY_ISSUED = 2;
@@ -113,6 +114,9 @@ class crp42602y_ctrl {
     bool _head_dir_a;
     bool _cue_dir_a;
     bool _has_cassette;
+    bool _rec_a_ok;
+    bool _rec_b_ok;
+    bool _type2_sw;
     bool _prev_has_cassette;
     reverse_mode_t _reverse_mode;
     bool _playing;
@@ -125,7 +129,8 @@ class crp42602y_ctrl {
     bool _cur_lift_head;
     bool _cur_reel_fwd;
     bool _power_enable;
-    uint16_t  _rot_count_history[ROTATION_SENS_STOP_DETECT_MS / PERIODIC_FUNC_MS];
+    uint32_t _sw_filter[4];
+    uint16_t _rot_count_history[ROTATION_SENS_STOP_DETECT_MS / PERIODIC_FUNC_MS];
 
     command_t _command_history_registered[NUM_COMMAND_HISTORY_REGISTERED];
     command_t _command_history_issued[NUM_COMMAND_HISTORY_ISSUED];

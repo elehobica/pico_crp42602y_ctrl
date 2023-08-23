@@ -30,6 +30,9 @@ crp42602y_ctrl::crp42602y_ctrl(
     _head_dir_a(true),
     _cue_dir_a(true),
     _has_cassette(false),
+    _rec_a_ok(false),
+    _rec_b_ok(false),
+    _type2_sw(false),
     _prev_has_cassette(false),
     _reverse_mode(RVS_ONE_ROUND),
     _playing(false),
@@ -42,6 +45,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _cur_lift_head(false),
     _cur_reel_fwd(false),
     _power_enable(true),
+    _sw_filter{},
     _rot_count_history{}
 {
     for (int i = 0; i < NUM_COMMAND_HISTORY_REGISTERED; i++) {
@@ -91,7 +95,32 @@ crp42602y_ctrl::~crp42602y_ctrl()
 
 void crp42602y_ctrl::periodic_func_100ms()
 {
-    _has_cassette = !gpio_get(_pin_cassette_detect);
+    // Switch filters
+    _sw_filter[0] = (_sw_filter[0] << 1) | !gpio_get(_pin_cassette_detect);
+    _sw_filter[1] = (_sw_filter[1] << 1) | ((_pin_rec_a_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0);
+    _sw_filter[2] = (_sw_filter[2] << 1) | ((_pin_rec_b_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0);
+    _sw_filter[3] = (_sw_filter[3] << 1) | ((_pin_type2_sw != 0) ? !gpio_get(_pin_type2_sw) : 0);
+    uint32_t mask = (1U << (SW_FILTER_MS / PERIODIC_FUNC_MS)) - 1;
+    if ((_sw_filter[0] & mask) == mask) {
+        _has_cassette = true;
+    } else if ((_sw_filter[0] & mask) == 0) {
+        _has_cassette = false;
+    }
+    if ((_sw_filter[1] & mask) == mask) {
+        _rec_a_ok = true;
+    } else if ((_sw_filter[1] & mask) == 0) {
+        _rec_a_ok = false;
+    }
+    if ((_sw_filter[2] & mask) == mask) {
+        _rec_b_ok = true;
+    } else if ((_sw_filter[2] & mask) == 0) {
+        _rec_b_ok = false;
+    }
+    if ((_sw_filter[3] & mask) == mask) {
+        _type2_sw = true;
+    } else if ((_sw_filter[3] & mask) == 0) {
+        _type2_sw = false;
+    }
 
     // Cassette set/eject detection
     if (!_prev_has_cassette && _has_cassette) {
