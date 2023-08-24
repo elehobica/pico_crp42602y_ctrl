@@ -368,7 +368,7 @@ bool crp42602y_ctrl::_get_power_enable() const
 
 void crp42602y_ctrl::_pull_solenoid(const bool flag) const
 {
-    gpio_put(_pin_solenoid_ctrl, !flag);
+    gpio_put(_pin_solenoid_ctrl, flag);
 }
 
 bool crp42602y_ctrl::_gear_is_in_func() const
