@@ -42,7 +42,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _cur_lift_head(false),
     _cur_reel_fwd(false),
     _power_enable(true),
-    _sw_filter{},
+    _signal_filter{},
     _rot_count_history{}
 {
     for (int i = 0; i < NUM_COMMAND_HISTORY_REGISTERED; i++) {
@@ -93,25 +93,9 @@ crp42602y_ctrl::~crp42602y_ctrl()
 void crp42602y_ctrl::periodic_func_100ms()
 {
     // Switch filters
-    _sw_filter[0] = (_sw_filter[0] << 1) | !gpio_get(_pin_cassette_detect);
-    _sw_filter[1] = (_sw_filter[1] << 1) | ((_pin_rec_a_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0);
-    _sw_filter[2] = (_sw_filter[2] << 1) | ((_pin_rec_b_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0);
-    uint32_t mask = (1U << (SW_FILTER_MS / PERIODIC_FUNC_MS)) - 1;
-    if ((_sw_filter[0] & mask) == mask) {
-        _has_cassette = true;
-    } else if ((_sw_filter[0] & mask) == 0) {
-        _has_cassette = false;
-    }
-    if ((_sw_filter[1] & mask) == mask) {
-        _rec_a_ok = true;
-    } else if ((_sw_filter[1] & mask) == 0) {
-        _rec_a_ok = false;
-    }
-    if ((_sw_filter[2] & mask) == mask) {
-        _rec_b_ok = true;
-    } else if ((_sw_filter[2] & mask) == 0) {
-        _rec_b_ok = false;
-    }
+    _filter_signal(FILT_CASSETTE_DETECT, !gpio_get(_pin_cassette_detect), _has_cassette);
+    _filter_signal(FILT_REC_A_OK, ((_pin_rec_a_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_a_ok);
+    _filter_signal(FILT_REC_B_OK, ((_pin_rec_b_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_b_ok);
 
     // Cassette set/eject detection
     if (!_prev_has_cassette && _has_cassette) {
@@ -336,6 +320,20 @@ void crp42602y_ctrl::process_loop()
         if (_callbacks[callback_type] != nullptr) {
             _callbacks[callback_type](callback_type);
         }
+    }
+}
+
+void crp42602y_ctrl::_filter_signal(const filter_signal_t filter_signal, const bool raw_signal, bool& filtered_signal)
+{
+    // Shift
+    _signal_filter[filter_signal] = (_signal_filter[filter_signal] << 1) | raw_signal;
+
+    // Apply if same value repeated (SIGNAL_FILTER_MS / PERIODIC_FUNC_MS) times
+    uint32_t mask = (1U << (SIGNAL_FILTER_MS / PERIODIC_FUNC_MS)) - 1;
+    if ((_signal_filter[filter_signal] & mask) == mask) {
+        filtered_signal = true;
+    } else if ((_signal_filter[filter_signal] & mask) == 0) {
+        filtered_signal = false;
     }
 }
 

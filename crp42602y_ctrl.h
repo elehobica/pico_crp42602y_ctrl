@@ -28,13 +28,19 @@ class crp42602y_ctrl {
         command_type_t type;
         direction_t    dir;
     } command_t;
+    typedef enum _filter_signal_t {
+        FILT_CASSETTE_DETECT = 0,
+        FILT_REC_A_OK,
+        FILT_REC_B_OK,
+        __NUM_FILTER_SIGNALS__
+    } filter_signal_t;
 
     // Constants
     static constexpr int POWER_OFF_TIMEOUT_SEC = 300;
     static constexpr int COMMAND_QUEUE_LENGTH = 4;
     static constexpr int CALLBACK_QUEUE_LENGTH = 4;
     static constexpr int PERIODIC_FUNC_MS = 100;
-    static constexpr int SW_FILTER_MS = 300;
+    static constexpr int SIGNAL_FILTER_MS = 300;
     static constexpr int ROTATION_SENS_STOP_DETECT_MS = 1000;
     static constexpr int NUM_COMMAND_HISTORY_REGISTERED = 1;
     static constexpr int NUM_COMMAND_HISTORY_ISSUED = 2;
@@ -126,7 +132,7 @@ class crp42602y_ctrl {
     bool _cur_lift_head;
     bool _cur_reel_fwd;
     bool _power_enable;
-    uint32_t _sw_filter[4];
+    uint32_t _signal_filter[__NUM_FILTER_SIGNALS__];
     uint16_t _rot_count_history[ROTATION_SENS_STOP_DETECT_MS / PERIODIC_FUNC_MS];
 
     command_t _command_history_registered[NUM_COMMAND_HISTORY_REGISTERED];
@@ -136,6 +142,7 @@ class crp42602y_ctrl {
     queue_t   _callback_queue;
     uint      _pwm_slice_num;
 
+    void _filter_signal(const filter_signal_t filter_signal, const bool raw_signal, bool& filtered_signal);
     bool _dispatch_callback(const callback_type_t callback_type);
     void _set_power_enable(const bool flag);
     bool _get_power_enable() const;
