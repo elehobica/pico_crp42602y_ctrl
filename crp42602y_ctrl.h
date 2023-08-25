@@ -88,9 +88,9 @@ class crp42602y_ctrl {
     void periodic_func_100ms();
     bool is_playing() const;
     bool is_cueing() const;
-    bool set_head_dir_a(const bool head_dir_a);
-    bool get_head_dir_a() const;
-    bool get_cue_dir_a() const;
+    bool set_head_dir_is_a(const bool head_dir_is_a);
+    bool get_head_dir_is_a() const;
+    bool get_cue_dir_is_a() const;
     void set_reverse_mode(const reverse_mode_t mode);
     reverse_mode_t get_reverse_mode() const;
     void recover_power_from_timeout();
@@ -111,8 +111,8 @@ class crp42602y_ctrl {
     uint _pin_pb_eq_ctrl;
     uint _pin_dolby_off_ctrl;
     uint _pin_dolby_c_ctrl;
-    bool _head_dir_a;
-    bool _cue_dir_a;
+    bool _head_dir_is_a;
+    bool _cue_dir_is_a;
     bool _has_cassette;
     bool _rec_a_ok;
     bool _rec_b_ok;
@@ -125,7 +125,7 @@ class crp42602y_ctrl {
     int _rot_stop_ignore_count;
     int _power_off_timeout_count;
     bool _has_cur_gear_status;
-    bool _cur_head_dir_a;
+    bool _cur_head_dir_is_a;
     bool _cur_lift_head;
     bool _cur_reel_fwd;
     bool _power_enable;
@@ -144,11 +144,11 @@ class crp42602y_ctrl {
     bool _get_power_enable() const;
     void _pull_solenoid(const bool flag) const;
     bool _gear_is_in_func() const;
-    void _gear_store_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
-    bool _gear_is_equal_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd) const;
-    bool _gear_func_sequence(const bool head_dir_a, const bool lift_head, const bool reel_fwd);
+    void _gear_store_status(const bool head_dir_is_a, const bool lift_head, const bool reel_fwd);
+    bool _gear_is_equal_status(const bool head_dir_is_a, const bool lift_head, const bool reel_fwd) const;
+    bool _gear_func_sequence(const bool head_dir_is_a, const bool lift_head, const bool reel_fwd);
     bool _gear_return_sequence();
-    bool _get_abs_dir(const direction_t dir) const;
+    bool _get_dir_is_a(const direction_t dir) const;
     bool _stop(const direction_t dir);
     bool _play(const direction_t dir);
     bool _cue(const direction_t dir);

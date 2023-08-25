@@ -111,11 +111,11 @@ bool crp42602y_get_callback(crp42602y_ctrl::callback_type_t* callback_type)
 void inc_head_dir(bool inc = true)
 {
     crp42602y_ctrl0->recover_power_from_timeout();
-    bool head_dir_a = crp42602y_ctrl0->get_head_dir_a();
+    bool head_dir_is_a = crp42602y_ctrl0->get_head_dir_is_a();
     if (inc) {
-        head_dir_a = !head_dir_a;
-        head_dir_a = crp42602y_ctrl0->set_head_dir_a(head_dir_a);
-        printf("head dir %c\r\n", head_dir_a ? 'A' : 'B');
+        head_dir_is_a = !head_dir_is_a;
+        head_dir_is_a = crp42602y_ctrl0->set_head_dir_is_a(head_dir_is_a);
+        printf("head dir %c\r\n", head_dir_is_a ? 'A' : 'B');
     }
 }
 
@@ -214,14 +214,14 @@ int main()
                 printf("Stop\r\n");
                 break;
             case crp42602y_ctrl::ON_PLAY:
-                if (crp42602y_ctrl0->get_head_dir_a()) {
+                if (crp42602y_ctrl0->get_head_dir_is_a()) {
                     printf("Play A\r\n");
                 } else {
                     printf("Play B\r\n");
                 }
                 break;
             case crp42602y_ctrl::ON_CUE:
-                if (crp42602y_ctrl0->get_cue_dir_a()) {
+                if (crp42602y_ctrl0->get_cue_dir_is_a()) {
                     printf("FF\r\n");
                 } else {
                     printf("REW\r\n");
@@ -229,7 +229,7 @@ int main()
                 break;
             case crp42602y_ctrl::ON_REVERSE:
                 printf("Reversed\r\n");
-                if (crp42602y_ctrl0->get_head_dir_a()) {
+                if (crp42602y_ctrl0->get_head_dir_is_a()) {
                     printf("Play A\r\n");
                 } else {
                     printf("Play B\r\n");

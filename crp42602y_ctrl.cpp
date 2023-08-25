@@ -27,8 +27,8 @@ crp42602y_ctrl::crp42602y_ctrl(
     _pin_rec_a_sw(pin_rec_a_sw),
     _pin_rec_b_sw(pin_rec_b_sw),
     _pin_type2_sw(pin_type2_sw),
-    _head_dir_a(true),
-    _cue_dir_a(true),
+    _head_dir_is_a(true),
+    _cue_dir_is_a(true),
     _has_cassette(false),
     _rec_a_ok(false),
     _rec_b_ok(false),
@@ -41,7 +41,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _rot_stop_ignore_count(0),
     _power_off_timeout_count(0),
     _has_cur_gear_status(false),
-    _cur_head_dir_a(false),
+    _cur_head_dir_is_a(false),
     _cur_lift_head(false),
     _cur_reel_fwd(false),
     _power_enable(true),
@@ -182,14 +182,14 @@ void crp42602y_ctrl::periodic_func_100ms()
         // reverse if previous command is play, or cue after play in same direction
         bool reverse_flag = _command_history_issued[0].type == CMD_TYPE_PLAY  ||
                             (_command_history_issued[0].type == CMD_TYPE_CUE && _command_history_issued[1].type == CMD_TYPE_PLAY &&
-                                (_command_history_issued[0].dir == DIR_FORWARD) == _head_dir_a);
+                                (_command_history_issued[0].dir == DIR_FORWARD) == _head_dir_is_a);
         switch (_reverse_mode) {
         case RVS_ONE_WAY:
             send_command(STOP_COMMAND);
             break;
         case RVS_ONE_ROUND:
             if (reverse_flag) {
-                if (_head_dir_a) {
+                if (_head_dir_is_a) {
                     send_command(PLAY_REVERSE_COMMAND);
                 } else {
                     // It is expected to play A at next time after one round stops
@@ -228,23 +228,23 @@ bool crp42602y_ctrl::is_cueing() const
     return _cueing;
 }
 
-bool crp42602y_ctrl::set_head_dir_a(const bool head_dir_a)
+bool crp42602y_ctrl::set_head_dir_is_a(const bool head_dir_is_a)
 {
     // ignore when in func
     if (!_gear_is_in_func()) {
-        _head_dir_a = head_dir_a;
+        _head_dir_is_a = head_dir_is_a;
     }
-    return _head_dir_a;
+    return _head_dir_is_a;
 }
 
-bool crp42602y_ctrl::get_head_dir_a() const
+bool crp42602y_ctrl::get_head_dir_is_a() const
 {
-    return _head_dir_a;
+    return _head_dir_is_a;
 }
 
-bool crp42602y_ctrl::get_cue_dir_a() const
+bool crp42602y_ctrl::get_cue_dir_is_a() const
 {
-    return _cue_dir_a;
+    return _cue_dir_is_a;
 }
 
 void crp42602y_ctrl::set_reverse_mode(const reverse_mode_t mode)
@@ -376,21 +376,21 @@ bool crp42602y_ctrl::_gear_is_in_func() const
     return !gpio_get(_pin_gear_status_sw) && _power_enable;
 }
 
-void crp42602y_ctrl::_gear_store_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd)
+void crp42602y_ctrl::_gear_store_status(const bool head_dir_is_a, const bool lift_head, const bool reel_fwd)
 {
     _has_cur_gear_status = true;
-    _cur_head_dir_a = head_dir_a;
+    _cur_head_dir_is_a = head_dir_is_a;
     _cur_lift_head = lift_head;
     _cur_reel_fwd = reel_fwd;
 }
 
-bool crp42602y_ctrl::_gear_is_equal_status(const bool head_dir_a, const bool lift_head, const bool reel_fwd) const
+bool crp42602y_ctrl::_gear_is_equal_status(const bool head_dir_is_a, const bool lift_head, const bool reel_fwd) const
 {
     return _has_cur_gear_status == true &&
-        _cur_head_dir_a == head_dir_a && _cur_lift_head == lift_head && _cur_reel_fwd == reel_fwd;
+        _cur_head_dir_is_a == head_dir_is_a && _cur_lift_head == lift_head && _cur_reel_fwd == reel_fwd;
 }
 
-bool crp42602y_ctrl::_gear_func_sequence(const bool head_dir_a, const bool lift_head, const bool reel_fwd)
+bool crp42602y_ctrl::_gear_func_sequence(const bool head_dir_is_a, const bool lift_head, const bool reel_fwd)
 {
     constexpr uint32_t tWaitMotorStable = 500;
 
@@ -416,7 +416,7 @@ bool crp42602y_ctrl::_gear_func_sequence(const bool head_dir_a, const bool lift_
 
     _pull_solenoid(true);
     sleep_ms(tInitE);
-    _pull_solenoid(!head_dir_a);
+    _pull_solenoid(!head_dir_is_a);
     sleep_ms(tHeadDirE - tInitE);
     _pull_solenoid(false);
     sleep_ms(tLiftHeadS - tHeadDirE);
@@ -432,7 +432,7 @@ bool crp42602y_ctrl::_gear_func_sequence(const bool head_dir_a, const bool lift_
         return false;
     }
 
-    _gear_store_status(head_dir_a, lift_head, reel_fwd);
+    _gear_store_status(head_dir_is_a, lift_head, reel_fwd);
     return true;
 }
 
@@ -455,27 +455,27 @@ bool crp42602y_ctrl::_gear_return_sequence()
     return true;
 }
 
-bool crp42602y_ctrl::_get_abs_dir(direction_t dir) const
+bool crp42602y_ctrl::_get_dir_is_a(direction_t dir) const
 {
-    bool dir_abs;
+    bool dir_is_a;
     switch(dir) {
     case DIR_KEEP:
-        dir_abs = _head_dir_a;
+        dir_is_a = _head_dir_is_a;
         break;
     case DIR_REVERSE:
-        dir_abs = !_head_dir_a;
+        dir_is_a = !_head_dir_is_a;
         break;
     case DIR_FORWARD:
-        dir_abs = true;
+        dir_is_a = true;
         break;
     case DIR_BACKWARD:
-        dir_abs = false;
+        dir_is_a = false;
         break;
     default:
-        dir_abs = _head_dir_a;
+        dir_is_a = _head_dir_is_a;
         break;
     }
-    return dir_abs;
+    return dir_is_a;
 }
 
 bool crp42602y_ctrl::_stop(direction_t dir)
@@ -483,29 +483,29 @@ bool crp42602y_ctrl::_stop(direction_t dir)
     if (_gear_is_in_func()) {
         if (!_gear_return_sequence()) return false;
     }
-    if (dir == DIR_REVERSE) _head_dir_a = !_head_dir_a;
+    if (dir == DIR_REVERSE) _head_dir_is_a = !_head_dir_is_a;
     return true;
 }
 
 bool crp42602y_ctrl::_play(direction_t dir)
 {
-    _head_dir_a = _get_abs_dir(dir);
+    _head_dir_is_a = _get_dir_is_a(dir);
     if (_gear_is_in_func()) {
-        if (_gear_is_equal_status(_head_dir_a, true, _head_dir_a)) return false;
+        if (_gear_is_equal_status(_head_dir_is_a, true, _head_dir_is_a)) return false;
         if (!_gear_return_sequence()) return false;
     }
     if (!_has_cassette) return false;
-    return _gear_func_sequence(_head_dir_a, true, _head_dir_a);
+    return _gear_func_sequence(_head_dir_is_a, true, _head_dir_is_a);
 }
 
 bool crp42602y_ctrl::_cue(direction_t dir)
 {
-    _cue_dir_a = _get_abs_dir(dir);
+    _cue_dir_is_a = _get_dir_is_a(dir);
     if (_gear_is_in_func()) {
-        if (_gear_is_equal_status(_head_dir_a, false, _cue_dir_a)) return false;
+        if (_gear_is_equal_status(_head_dir_is_a, false, _cue_dir_is_a)) return false;
         if (!_gear_return_sequence()) return false;
     }
     if (!_has_cassette) return false;
     // Evacuate head, however note that the head direction still matters for which side the head is tracing,
-    return _gear_func_sequence(_head_dir_a, false, _cue_dir_a);
+    return _gear_func_sequence(_head_dir_is_a, false, _cue_dir_is_a);
 }

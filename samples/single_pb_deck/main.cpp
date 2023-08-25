@@ -243,11 +243,11 @@ bool crp42602y_get_callback(crp42602y_ctrl::callback_type_t* callback_type)
 void inc_head_dir(bool inc = true)
 {
     crp42602y_ctrl0->recover_power_from_timeout();
-    bool head_dir_a = crp42602y_ctrl0->get_head_dir_a();
+    bool head_dir_is_a = crp42602y_ctrl0->get_head_dir_is_a();
     if (inc) {
-        head_dir_a = !head_dir_a;
-        head_dir_a = crp42602y_ctrl0->set_head_dir_a(head_dir_a);
-        printf("head dir %c\r\n", head_dir_a ? 'A' : 'B');
+        head_dir_is_a = !head_dir_is_a;
+        head_dir_is_a = crp42602y_ctrl0->set_head_dir_is_a(head_dir_is_a);
+        printf("head dir %c\r\n", head_dir_is_a ? 'A' : 'B');
     }
 }
 
@@ -370,7 +370,7 @@ void disp_default_contents()
 {
     _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
     if (_has_cassette) {
-        _ssd1306_draw_stop_arrow(&disp, crp42602y_ctrl0->get_head_dir_a());
+        _ssd1306_draw_stop_arrow(&disp, crp42602y_ctrl0->get_head_dir_is_a());
     } else {
         ssd1306_draw_string(&disp, 32, 32-4, 1, "NO CASSETTE");
     }
@@ -544,7 +544,7 @@ int main()
                 break;
             case crp42602y_ctrl::ON_PLAY:
                 _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
-                if (crp42602y_ctrl0->get_head_dir_a()) {
+                if (crp42602y_ctrl0->get_head_dir_is_a()) {
                     printf("Play A\r\n");
                     ssd1306_draw_string(&disp, 0, 0, 1, "PLAY A");
                 } else {
@@ -556,7 +556,7 @@ int main()
                 break;
             case crp42602y_ctrl::ON_CUE:
                 _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
-                if (crp42602y_ctrl0->get_cue_dir_a()) {
+                if (crp42602y_ctrl0->get_cue_dir_is_a()) {
                     printf("FF\r\n");
                     ssd1306_draw_string(&disp, 0, 0, 1, "FF");
                 } else {
@@ -569,7 +569,7 @@ int main()
             case crp42602y_ctrl::ON_REVERSE:
                 printf("Reversed\r\n");
                 _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
-                if (crp42602y_ctrl0->get_head_dir_a()) {
+                if (crp42602y_ctrl0->get_head_dir_is_a()) {
                     printf("Play A\r\n");
                     ssd1306_draw_string(&disp, 0, 0, 1, "Play A");
                 } else {
@@ -607,18 +607,18 @@ int main()
                     if (crp42602y_ctrl0->is_playing()) {
                         uint32_t pos = disp_count/4 % 16;
                         _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
-                        _ssd1306_draw_play_arrow(&disp, crp42602y_ctrl0->get_head_dir_a(), pos);
+                        _ssd1306_draw_play_arrow(&disp, crp42602y_ctrl0->get_head_dir_is_a(), pos);
                         ssd1306_show(&disp);
                         disp_count++;
                     } else if (crp42602y_ctrl0->is_cueing()) {
                         uint32_t pos = disp_count % 16;
                         _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
-                        _ssd1306_draw_cue_arrow(&disp, crp42602y_ctrl0->get_cue_dir_a(), pos);
+                        _ssd1306_draw_cue_arrow(&disp, crp42602y_ctrl0->get_cue_dir_is_a(), pos);
                         ssd1306_show(&disp);
                         disp_count++;
                     } else {  // STOP
                         _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
-                        _ssd1306_draw_stop_arrow(&disp, crp42602y_ctrl0->get_head_dir_a());
+                        _ssd1306_draw_stop_arrow(&disp, crp42602y_ctrl0->get_head_dir_is_a());
                         ssd1306_show(&disp);
                         disp_count = 0;
                     }
