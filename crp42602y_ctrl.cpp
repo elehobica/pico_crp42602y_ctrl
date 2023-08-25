@@ -16,8 +16,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     uint pin_solenoid_ctrl,
     uint pin_power_ctrl,
     uint pin_rec_a_sw,
-    uint pin_rec_b_sw,
-    uint pin_type2_sw
+    uint pin_rec_b_sw
 ) :
     _pin_cassette_detect(pin_cassette_detect),
     _pin_gear_status_sw(pin_gear_status_sw),
@@ -26,13 +25,11 @@ crp42602y_ctrl::crp42602y_ctrl(
     _pin_power_ctrl(pin_power_ctrl),
     _pin_rec_a_sw(pin_rec_a_sw),
     _pin_rec_b_sw(pin_rec_b_sw),
-    _pin_type2_sw(pin_type2_sw),
     _head_dir_is_a(true),
     _cue_dir_is_a(true),
     _has_cassette(false),
     _rec_a_ok(false),
     _rec_b_ok(false),
-    _type2_sw(false),
     _prev_has_cassette(false),
     _reverse_mode(RVS_ONE_ROUND),
     _playing(false),
@@ -99,7 +96,6 @@ void crp42602y_ctrl::periodic_func_100ms()
     _sw_filter[0] = (_sw_filter[0] << 1) | !gpio_get(_pin_cassette_detect);
     _sw_filter[1] = (_sw_filter[1] << 1) | ((_pin_rec_a_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0);
     _sw_filter[2] = (_sw_filter[2] << 1) | ((_pin_rec_b_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0);
-    _sw_filter[3] = (_sw_filter[3] << 1) | ((_pin_type2_sw != 0) ? !gpio_get(_pin_type2_sw) : 0);
     uint32_t mask = (1U << (SW_FILTER_MS / PERIODIC_FUNC_MS)) - 1;
     if ((_sw_filter[0] & mask) == mask) {
         _has_cassette = true;
@@ -115,11 +111,6 @@ void crp42602y_ctrl::periodic_func_100ms()
         _rec_b_ok = true;
     } else if ((_sw_filter[2] & mask) == 0) {
         _rec_b_ok = false;
-    }
-    if ((_sw_filter[3] & mask) == mask) {
-        _type2_sw = true;
-    } else if ((_sw_filter[3] & mask) == 0) {
-        _type2_sw = false;
     }
 
     // Cassette set/eject detection

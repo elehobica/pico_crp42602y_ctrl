@@ -81,9 +81,8 @@ class crp42602y_ctrl {
         uint pin_solenoid_ctrl,    // GPIO Output: This needs additional circuit to control solenoid
         uint pin_power_enable = 0, // GPIO Output: Power contrl (for timeout disable) (optional: 0 for not use)
         uint pin_rec_a_sw = 0,     // GPIO Input: Rec switch for A (optional: 0 for not use)
-        uint pin_rec_b_sw = 0,     // GPIO Input: Rec switch for B (optional: 0 for not use)
-        uint pin_type2_sw = 0      // GPIO Input: Type II switch (optional: 0 for not use)
-        );
+        uint pin_rec_b_sw = 0     // GPIO Input: Rec switch for B (optional: 0 for not use)
+    );
     virtual ~crp42602y_ctrl();
     void periodic_func_100ms();
     bool is_playing() const;
@@ -107,7 +106,6 @@ class crp42602y_ctrl {
     uint _pin_power_ctrl;
     uint _pin_rec_a_sw;
     uint _pin_rec_b_sw;
-    uint _pin_type2_sw;
     uint _pin_pb_eq_ctrl;
     uint _pin_dolby_off_ctrl;
     uint _pin_dolby_c_ctrl;
@@ -116,7 +114,6 @@ class crp42602y_ctrl {
     bool _has_cassette;
     bool _rec_a_ok;
     bool _rec_b_ok;
-    bool _type2_sw;
     bool _prev_has_cassette;
     reverse_mode_t _reverse_mode;
     bool _playing;
