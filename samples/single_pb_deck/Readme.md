@@ -12,18 +12,13 @@
 * SSD1306 128x64 OLED display
 
 ## Pin Assignment & Connection
-### CRP42602 connector
+### Raspberry Pi Pico
 | Pico Pin # | GPIO | Function | Connection |
 ----|----|----|----
+| 4 | GP2 | GPIO Output | to SOLENOID_CTRL of additional circuit (0: release, 1: pull) |
 | 5 | GP3 | GPIO Input | CASSETTE_DETECT from CRP42602Y pin 7 |
 | 6 | GP4 | GPIO Input | GEAR_STATUS_SW from CRP42602Y pin 3 |
 | 7 | GP5 | PWM_B Input | ROTATION_SENS from CRP42602Y pin 2 |
-| 8 | GND | GND | GND |
-
-### CRP42602 control with additional circuit
-| Pico Pin # | GPIO | Function | Connection |
-----|----|----|----
-| 4 | GP2 | GPIO Output | to SOLENOID_CTRL (0: release, 1: pull) |
 | 8 | GND | GND | GND |
 | 9 | GP6 | GPIO Output | to POWER_CTRL (0: disable, 1: enable) |
 
