@@ -21,7 +21,7 @@ static constexpr uint PIN_SOLENOID_CTRL   = 2;
 static constexpr uint PIN_CASSETTE_DETECT = 3;
 static constexpr uint PIN_GEAR_STATUS_SW  = 4;
 static constexpr uint PIN_ROTATION_SENS   = 5;  // This needs to be PWM_B pin
-static constexpr uint PIN_POWER_CTRL      = 6;
+static constexpr uint PIN_POWER_CTRL      = 6;  // Optional: 0 if not use
 
 // ADC Timer & frequency
 static repeating_timer_t timer;
@@ -54,6 +54,9 @@ static bool periodic_func(repeating_timer_t *rt)
         //uint64_t t0 = _micros();
         crp42602y_ctrl0->periodic_func_100ms();
         //_t = (uint32_t) (_micros() - t0);
+    }
+    if (_count % 10 == 0) {
+        gpio_put(PIN_LED, !gpio_get(PIN_LED));
     }
     _count++;
     return true; // keep repeating

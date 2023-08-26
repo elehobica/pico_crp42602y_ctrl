@@ -109,7 +109,7 @@ void crp42602y_ctrl::periodic_func_100ms()
     _prev_has_cassette = _has_cassette;
 
     // Timeout power off (for mechanism)
-    if (_gear_is_in_func()) {
+    if (_pin_power_ctrl == 0 || _gear_is_in_func()) {
         _power_off_timeout_count = 0;
     } else if (_power_off_timeout_count > POWER_OFF_TIMEOUT_SEC * 1000 / PERIODIC_FUNC_MS) {
         _power_off_timeout_count = 0;
