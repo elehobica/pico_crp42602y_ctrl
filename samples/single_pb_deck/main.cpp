@@ -116,7 +116,7 @@ static void _ssd1306_clear_square(ssd1306_t* p, uint32_t x, uint32_t y, uint32_t
 
 static void _ssd1306_draw_arrow(ssd1306_t* p, uint32_t x, uint32_t y, bool right_dir)
 {
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 6; i++) {
         uint32_t sx = x + i*1;
         uint32_t sy = y;
         if (right_dir) {
@@ -131,17 +131,28 @@ static void _ssd1306_draw_arrow(ssd1306_t* p, uint32_t x, uint32_t y, bool right
 
 static void _ssd1306_draw_stop_arrow(ssd1306_t* p, bool right_dir)
 {
-    uint32_t ox = 64-12/2;
+    uint32_t ox = 64-14/2;
     uint32_t oy = 32-8;
-    for (int i = 0; i < 4; i++) {
-        _ssd1306_draw_arrow(p, ox + i, oy, right_dir);
-    }
+    _ssd1306_draw_arrow(p, ox, oy, right_dir);
 }
 
 // pos: 0 ~ 15
 static void _ssd1306_draw_play_arrow(ssd1306_t* p, bool right_dir, uint32_t pos)
 {
-    uint32_t ox = 64-24/2;
+    uint32_t ox = 64-14/2;
+    uint32_t oy = 32-8;
+    uint32_t ofs;
+    if (right_dir) {
+        ofs = (pos + 8) % 16;
+    } else {
+        ofs = (24 - pos) % 16;
+    }
+    _ssd1306_draw_arrow(p, ox + ofs - 8, oy, right_dir);
+}
+
+static void _ssd1306_draw_cue_arrow(ssd1306_t* p, bool right_dir, uint32_t pos)
+{
+    uint32_t ox = 64-22/2;
     uint32_t oy = 32-8;
     uint32_t ofs;
     if (right_dir) {
@@ -150,26 +161,7 @@ static void _ssd1306_draw_play_arrow(ssd1306_t* p, bool right_dir, uint32_t pos)
         ofs = (24 - pos) % 16;
     }
     for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 4; j++) {
-            _ssd1306_draw_arrow(p, ox + i*12 + j + ofs - 8, oy, right_dir);
-        }
-    }
-}
-
-static void _ssd1306_draw_cue_arrow(ssd1306_t* p, bool right_dir, uint32_t pos)
-{
-    uint32_t ox = 64-34/2;
-    uint32_t oy = 32-8;
-    uint32_t ofs;
-    if (right_dir) {
-        ofs = (pos + 8) % 16;
-    } else {
-        ofs = (24 - pos) % 16;
-    }
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 2; j++) {
-            _ssd1306_draw_arrow(p, ox + i*8 + j + ofs - 8, oy, right_dir);
-        }
+        _ssd1306_draw_arrow(p, ox + i*8 + ofs - 8, oy, right_dir);
     }
 }
 
