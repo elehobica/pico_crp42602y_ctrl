@@ -38,13 +38,12 @@ class crp42602y_ctrl {
     } filter_signal_t;
 
     // Constants
-    static constexpr int POWER_OFF_TIMEOUT_SEC = 300;
-    static constexpr int COMMAND_QUEUE_LENGTH = 4;
-    static constexpr int CALLBACK_QUEUE_LENGTH = 4;
-    static constexpr int PERIODIC_FUNC_MS = 100;
-    static constexpr int SIGNAL_FILTER_MS = 300;
-    static constexpr int NUM_COMMAND_HISTORY_REGISTERED = 1;
-    static constexpr int NUM_COMMAND_HISTORY_ISSUED = 2;
+    static constexpr uint32_t POWER_OFF_TIMEOUT_SEC = 300;
+    static constexpr uint     COMMAND_QUEUE_LENGTH = 4;
+    static constexpr uint     CALLBACK_QUEUE_LENGTH = 4;
+    static constexpr uint32_t SIGNAL_FILTER_TIMES = 3;
+    static constexpr int      NUM_COMMAND_HISTORY_REGISTERED = 1;
+    static constexpr int      NUM_COMMAND_HISTORY_ISSUED = 2;
     // Internal commands
     static constexpr command_t VOID_COMMAND         = {CMD_TYPE_NONE, DIR_KEEP};
     static constexpr command_t STOP_REVERSE_COMMAND = {CMD_TYPE_STOP, DIR_REVERSE};
@@ -91,7 +90,6 @@ class crp42602y_ctrl {
         uint pin_rec_b_sw = 0     // GPIO Input: Rec switch for B (optional: 0 for not use)
     );
     virtual ~crp42602y_ctrl();
-    void periodic_func_100ms();
     bool is_playing() const;
     bool is_cueing() const;
     bool set_head_dir_is_a(const bool head_dir_is_a);
@@ -126,8 +124,7 @@ class crp42602y_ctrl {
     reverse_mode_t _reverse_mode;
     bool _playing;
     bool _cueing;
-    int _periodic_count;
-    int _power_off_timeout_count;
+    uint32_t _prev_func_time;
     bool _has_cur_gear_status;
     bool _cur_head_dir_is_a;
     bool _cur_lift_head;

@@ -85,7 +85,7 @@ void rotation_calc::irq_callback()
             accu_time_us = 0;
             break;
         }
-        accu_time_us += (TIMEOUT_COUNT - val) * PIO_MICRO_SEC_PER_COUNT;
+        accu_time_us += (TIMEOUT_COUNT - val) * PIO_COUNT_DIV;
     }
     if (accu_time_us) {
         _mark_half_rotation(accu_time_us);

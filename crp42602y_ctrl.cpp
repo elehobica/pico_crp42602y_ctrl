@@ -6,7 +6,12 @@
 
 #include "crp42602y_ctrl.h"
 
-#include <cstdio>
+//#include <cstdio>
+
+static inline uint32_t _millis(void)
+{
+    return to_ms_since_boot(get_absolute_time());
+}
 
 crp42602y_ctrl::crp42602y_ctrl(
     uint pin_cassette_detect,
@@ -33,8 +38,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _reverse_mode(RVS_ONE_ROUND),
     _playing(false),
     _cueing(false),
-    _periodic_count(0),
-    _power_off_timeout_count(0),
+    _prev_func_time(0),
     _has_cur_gear_status(false),
     _cur_head_dir_is_a(false),
     _cur_lift_head(false),
@@ -79,21 +83,6 @@ crp42602y_ctrl::~crp42602y_ctrl()
     queue_free(&_callback_queue);
 }
 
-void crp42602y_ctrl::periodic_func_100ms()
-{
-    // Timeout power off (for mechanism)
-    if (_pin_power_ctrl == 0 || _gear_is_in_func()) {
-        _power_off_timeout_count = 0;
-    } else if (_power_off_timeout_count > POWER_OFF_TIMEOUT_SEC * 1000 / PERIODIC_FUNC_MS) {
-        _power_off_timeout_count = 0;
-        _set_power_enable(false);
-        _dispatch_callback(ON_TIMEOUT_POWER_OFF);
-    }
-
-    if (_get_power_enable()) _power_off_timeout_count++;
-    _periodic_count++;
-}
-
 bool crp42602y_ctrl::is_playing() const
 {
     return _playing;
@@ -135,7 +124,6 @@ crp42602y_ctrl::reverse_mode_t crp42602y_ctrl::get_reverse_mode() const
 
 void crp42602y_ctrl::recover_power_from_timeout()
 {
-    _power_off_timeout_count = 0;
     bool power_enable = _power_enable;
     _set_power_enable(true);
     if (!power_enable) {
@@ -190,6 +178,22 @@ void crp42602y_ctrl::process_loop()
         }
     }
     _prev_has_cassette = _has_cassette;
+
+    // Timeout power off (for mechanism)
+    uint32_t now = _millis();
+    if (_gear_is_in_func() || !_get_power_enable() || _pin_power_ctrl == 0) {
+        _prev_func_time = now;
+    }
+    uint32_t diff_time;
+    if (now < _prev_func_time) {
+        diff_time = 0xffffffffUL - _prev_func_time + now + 1;
+    } else {
+        diff_time = now - _prev_func_time;
+    }
+    if (diff_time >= POWER_OFF_TIMEOUT_SEC * 1000 && _get_power_enable()) {
+        _set_power_enable(false);
+        _dispatch_callback(ON_TIMEOUT_POWER_OFF);
+    }
 
     // Process command
     while (queue_get_level(&_command_queue) > 0) {
@@ -280,8 +284,8 @@ void crp42602y_ctrl::_filter_signal(const filter_signal_t filter_signal, const b
     // Shift
     _signal_filter[filter_signal] = (_signal_filter[filter_signal] << 1) | raw_signal;
 
-    // Apply if same value repeated (SIGNAL_FILTER_MS / PERIODIC_FUNC_MS) times
-    uint32_t mask = (1U << (SIGNAL_FILTER_MS / PERIODIC_FUNC_MS)) - 1;
+    // Apply if same value repeated SIGNAL_FILTER_TIMES times
+    uint32_t mask = (1U << SIGNAL_FILTER_TIMES) - 1;
     if ((_signal_filter[filter_signal] & mask) == mask) {
         filtered_signal = true;
     } else if ((_signal_filter[filter_signal] & mask) == 0) {

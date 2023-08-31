@@ -28,8 +28,10 @@ class rotation_calc {
     static constexpr float    TAPE_SPEED_CM_PER_SEC = 4.75;
     static constexpr uint32_t NUM_ROTATION_WINGS = 2;
     static constexpr float    ROTATION_GEAR_RATIO = 43.0 / 23.0;
-    static constexpr uint32_t PIO_MICRO_SEC_PER_COUNT = 4;
-    static constexpr uint32_t TIMEOUT_COUNT = (uint32_t) (1000000 / PIO_MICRO_SEC_PER_COUNT);
+    static constexpr uint32_t TIMEOUT_MILLI_SEC = 1000;
+    static constexpr uint32_t PIO_FREQUENCY_HZ = 1000000;
+    static constexpr uint32_t PIO_COUNT_DIV = 4;
+    static constexpr uint32_t TIMEOUT_COUNT = TIMEOUT_MILLI_SEC * PIO_FREQUENCY_HZ / 1000 / PIO_COUNT_DIV;
 
     static std::map<uint, rotation_calc*> _inst_map;
 

@@ -45,10 +45,9 @@ static constexpr uint PIN_RESET_BUTTON  = 27;
 static constexpr uint PIN_SSD1306_SDA = 8;
 static constexpr uint PIN_SSD1306_SCL = 9;
 
-// ADC Timer & frequency
+// Timer & frequency
 static repeating_timer_t timer;
 static constexpr int INTERVAL_MS_BUTTONS_CHECK = 50;
-static constexpr int INTERVAL_MS_CRP42602Y_CTRL_FUNC = 100;  // > INTERVAL_MS_BUTTONS_CHECK
 
 static uint32_t _count = 0;
 //static uint32_t _t = 0;
@@ -170,13 +169,6 @@ static bool periodic_func(repeating_timer_t *rt)
         //uint64_t t0 = _micros();
         buttons->scan_periodic();
         //_t = (uint32_t) (_micros() - t0);
-    }
-    if (_count % (INTERVAL_MS_CRP42602Y_CTRL_FUNC / INTERVAL_MS_BUTTONS_CHECK) == 0) {
-        if (crp42602y_ctrl0 != nullptr) {
-            //uint64_t t0 = _micros();
-            crp42602y_ctrl0->periodic_func_100ms();
-            //_t = (uint32_t) (_micros() - t0);
-        }
     }
     _count++;
     return true; // keep repeating

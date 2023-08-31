@@ -2,7 +2,7 @@
 
 timeout:
     in x, 32          [0]  ; 0xFFFFFFFF (-1) should be sent for timeout
-    irq wait 0 rel    [0]
+    irq wait 0 rel    [0]  ; relative IRQ allows to distinguish state machine in IRQ handler (IRQ0 0 ~ 3 for sm 0 ~ 3)
 public entry_point:
     wait 0 pin 0      [0]
     wait 1 pin 0      [0]
@@ -13,18 +13,18 @@ term1:                     ; to count 1-term by 1/4 clock
     jmp pin term1_1   [1]
     jmp term1_end     [0]
 term1_1:
-    jmp x-- term1     [1]
+    jmp x-- term1     [1]  ; count div by 4 cycles
     jmp timeout       [0]
 term1_end:
-    in x, 32          [0]
+    in x, 32          [0]  ; send term1 counts
     mov x, osr        [0]
 term0:                     ; to count 0-term by 1/4 clock
     jmp pin term0_end [2]
-    jmp x-- term0     [0]
+    jmp x-- term0     [0]  ; count div by 4 cycles
     jmp timeout       [0]
 term0_end:
-    in x, 32          [0]
-    irq 0 rel         [0]
+    in x, 32          [0]  ; send term0 counts
+    irq 0 rel         [0]  ; relative IRQ allows to distinguish state machine in IRQ handler (IRQ0 0 ~ 3 for sm 0 ~ 3)
 .wrap
 
 ; ==============================================================================================
