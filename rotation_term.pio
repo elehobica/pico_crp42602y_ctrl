@@ -10,10 +10,10 @@ public entry_point:
 .wrap_target
     mov x, osr        [0]
 term1:                     ; to count 1-term by 1/4 clock
-    jmp pin term1_1   [0]
-    jmp term1_end     [1]
+    jmp pin term1_1   [1]
+    jmp term1_end     [0]
 term1_1:
-    jmp x-- term1     [0]
+    jmp x-- term1     [1]
     jmp timeout       [0]
 term1_end:
     in x, 32          [0]

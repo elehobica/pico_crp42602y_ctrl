@@ -8,11 +8,13 @@
 #include <cmath>
 
 #include "rotation_calc.h"
-#include "rotation_term.pio.h"
 
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
 #include "hardware/irq.h"
+
+#include "rotation_term.pio.h"
+#include "crp42602y_ctrl.h"
 
 #define CRP42602Y_PIO __CONCAT(pio, PICO_CRP42602Y_CTRL_PIO)
 #define PIO_IRQ_x __CONCAT(__CONCAT(PIO, PICO_CRP42602Y_CTRL_PIO), _IRQ_0)  // e.g. PIO0_IRQ_0
@@ -31,12 +33,7 @@ void __isr __time_critical_func(crp42602y_ctrl_pio_irq_handler)()
     }
 }
 
-static inline uint64_t _micros(void)
-{
-    return to_us_since_boot(get_absolute_time());
-}
-
-rotation_calc::rotation_calc(uint pin_rotation_sens) : _count(0), _sm(0)
+rotation_calc::rotation_calc(uint pin_rotation_sens, crp42602y_ctrl* ctrl) : _ctrl(ctrl), _count(0), _sm(0)
 {
     // PIO
     while (pio_sm_is_claimed(CRP42602Y_PIO, _sm)) {
@@ -83,30 +80,40 @@ rotation_calc::~rotation_calc()
 
 void rotation_calc::irq_callback()
 {
+    uint32_t accu_time_us = 0;
     while (pio_sm_get_rx_fifo_level(CRP42602Y_PIO, _sm)) {
-        uint32_t val = TIMEOUT_COUNT - pio_sm_get_blocking(CRP42602Y_PIO, _sm);
-        printf("val = %d us\r\n", val);
+        uint32_t val = pio_sm_get_blocking(CRP42602Y_PIO, _sm);
+        if (val == 0xffffffff) {  // timeout
+            accu_time_us = 0;
+            break;
+        }
+        accu_time_us += (TIMEOUT_COUNT - val) * PIO_MICRO_SEC_PER_COUNT;
+    }
+    //printf("val = %d us\r\n", accu_time_us);
+    if (accu_time_us) {
+        _mark_half_rotation(accu_time_us);
+    } else {
+        _assert_stop_detection();
     }
 }
 
-void rotation_calc::mark_half_rotation()
+void rotation_calc::_mark_half_rotation(uint32_t interval_us)
 {
-    uint64_t now_time = _micros();
-    uint32_t diff_time;
-    if (now_time > _prev_time) {
-        diff_time = (uint32_t) (now_time - _prev_time);
-    } else {
-        diff_time = (uint32_t) (now_time + ((~0LL) - _prev_time) + 1);
-    }
-    float rotation_per_second = 1.0e6 / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO / diff_time;
+    float rotation_per_second = 1.0e6 / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO / interval_us;
     float hub_radius = TAPE_SPEED_CM_PER_SEC / 2.0 / M_PI / rotation_per_second;
     float hub_rotations = (float) _count / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO;
     if (_count % 10 == 0) {
-        printf("diff_time = %d\r\n", (int) diff_time);
+        printf("--------\r\n");
+        printf("interval_us = %d\r\n", (int) interval_us);
         printf("rps = %d\r\n", (int) (rotation_per_second * 1000));
         printf("radius = %d\r\n", (int) (hub_radius * 1000));
         printf("hub rotations = %d\r\n", (int) (hub_rotations * 1000));
     }
-    _prev_time = now_time;
     _count++;
+}
+
+void rotation_calc::_assert_stop_detection()
+{
+    printf("not rotating\r\n");
+    _ctrl->stop_action();
 }

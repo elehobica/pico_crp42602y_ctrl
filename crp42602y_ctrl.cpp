@@ -44,7 +44,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _power_enable(true),
     _signal_filter{},
     _rot_count_history{},
-    _rotation_calc(_pin_rotation_sens)
+    _rotation_calc(_pin_rotation_sens, this)
 {
     for (int i = 0; i < NUM_COMMAND_HISTORY_REGISTERED; i++) {
         _command_history_registered[i] = VOID_COMMAND;
@@ -83,49 +83,12 @@ crp42602y_ctrl::crp42602y_ctrl(
         _set_power_enable(true); // set default before setting output mode
         gpio_set_dir(_pin_power_ctrl, GPIO_OUT);
     }
-
-    /*
-    // PIO
-    while (pio_sm_is_claimed(CRP42602Y_PIO, _sm)) {
-        if (++_sm >= 4) panic("all SMs are reserved");
-    }
-    pio_sm_claim(CRP42602Y_PIO, _sm);
-
-    // PIO_IRQ
-    if (!irq_has_shared_handler(PIO_IRQ_x)) {
-        irq_add_shared_handler(PIO_IRQ_x, crp42602y_ctrl_pio_irq_handler, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY);
-    }
-
-    pio_set_irq0_source_enabled(CRP42602Y_PIO, (enum pio_interrupt_source) ((uint) pis_interrupt0 + _sm), true);   // for IRQ relative
-    pio_set_irq1_source_enabled(CRP42602Y_PIO, (enum pio_interrupt_source) ((uint) pis_interrupt0 + _sm), false);  // not use
-    pio_interrupt_clear(CRP42602Y_PIO, _sm);
-    irq_set_enabled(PIO_IRQ_x, true);
-
-    printf("PIO %d %d\r\n", (int) CRP42602Y_PIO, (int) _sm);
-    // PIO
-    uint offset = pio_add_program(CRP42602Y_PIO, &rotation_term_program);
-    rotation_term_program_init(
-        CRP42602Y_PIO,
-        _sm,
-        offset,
-        rotation_term_offset_entry_point,
-        rotation_term_program_get_default_config,
-        _pin_rotation_sens,
-        1000000  // timeout_count
-    );
-    */
 }
 
 crp42602y_ctrl::~crp42602y_ctrl()
 {
     queue_free(&_command_queue);
     queue_free(&_callback_queue);
-    /*
-    // need confirm if other instance still uses the handler
-    if (irq_has_shared_handler(PIO_IRQ_x)) {
-        irq_remove_handler(PIO_PIO_x, crp42602y_ctrl_pio_irq_handler);
-    }
-    */
 }
 
 void crp42602y_ctrl::periodic_func_100ms()
@@ -165,6 +128,17 @@ void crp42602y_ctrl::periodic_func_100ms()
     } else {
         // loop for early rotation stop detection when cueing
         int rot_compare_idx = num_rot_count_history - 1;
+        uint16_t rot_compare = _rot_count_history[rot_compare_idx];
+        uint16_t rot_diff;
+        if (rot_count < rot_compare) {
+            rot_diff = (uint16_t) ((1U << 16) + rot_count - rot_compare);
+        } else {
+            rot_diff = rot_count - rot_compare;
+        }
+        if (rot_diff == 0) {
+            rotating = false;
+        }
+        /*
         while (true) {
             uint16_t rot_compare = _rot_count_history[rot_compare_idx];
             uint16_t rot_diff;
@@ -182,6 +156,7 @@ void crp42602y_ctrl::periodic_func_100ms()
             }
             rot_compare_idx /= 2;
         }
+        */
     }
 
     // Shift rotation history
@@ -192,6 +167,7 @@ void crp42602y_ctrl::periodic_func_100ms()
 
     // Stop action by reverse mode
     if (_rot_stop_ignore_count >= num_rot_count_history && !rotating) {
+        /*
         // reverse if previous command is play, or cue after play in same direction
         bool reverse_flag = _command_history_issued[0].type == CMD_TYPE_PLAY  ||
                             (_command_history_issued[0].type == CMD_TYPE_CUE && _command_history_issued[1].type == CMD_TYPE_PLAY &&
@@ -223,6 +199,7 @@ void crp42602y_ctrl::periodic_func_100ms()
             send_command(STOP_COMMAND);
             break;
         }
+        */
         _rot_stop_ignore_count = 0;
     }
 
@@ -358,6 +335,41 @@ void crp42602y_ctrl::process_loop()
         if (_callbacks[callback_type] != nullptr) {
             _callbacks[callback_type](callback_type);
         }
+    }
+}
+
+void crp42602y_ctrl::stop_action()
+{
+    // reverse if previous command is play, or cue after play in same direction
+    bool reverse_flag = _command_history_issued[0].type == CMD_TYPE_PLAY  ||
+                        (_command_history_issued[0].type == CMD_TYPE_CUE && _command_history_issued[1].type == CMD_TYPE_PLAY &&
+                            (_command_history_issued[0].dir == DIR_FORWARD) == _head_dir_is_a);
+    switch (_reverse_mode) {
+    case RVS_ONE_WAY:
+        send_command(STOP_COMMAND);
+        break;
+    case RVS_ONE_ROUND:
+        if (reverse_flag) {
+            if (_head_dir_is_a) {
+                send_command(PLAY_REVERSE_COMMAND);
+            } else {
+                // It is expected to play A at next time after one round stops
+                send_command(STOP_REVERSE_COMMAND);
+            }
+        } else {
+            send_command(STOP_COMMAND);
+        }
+        break;
+    case RVS_INFINITE_ROUND:
+        if (reverse_flag) {
+            send_command(PLAY_REVERSE_COMMAND);
+        } else {
+            send_command(STOP_COMMAND);
+        }
+        break;
+    default:
+        send_command(STOP_COMMAND);
+        break;
     }
 }
 

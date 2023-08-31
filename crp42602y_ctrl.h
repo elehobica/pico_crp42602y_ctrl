@@ -43,7 +43,7 @@ class crp42602y_ctrl {
     static constexpr int CALLBACK_QUEUE_LENGTH = 4;
     static constexpr int PERIODIC_FUNC_MS = 100;
     static constexpr int SIGNAL_FILTER_MS = 300;
-    static constexpr int ROTATION_SENS_STOP_DETECT_MS = 1000;
+    static constexpr int ROTATION_SENS_STOP_DETECT_MS = 3000;
     static constexpr int NUM_COMMAND_HISTORY_REGISTERED = 1;
     static constexpr int NUM_COMMAND_HISTORY_ISSUED = 2;
     // Internal commands
@@ -105,6 +105,7 @@ class crp42602y_ctrl {
     void register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type));
     void register_callback_all(void (*func)(const callback_type_t callback_type));
     void process_loop();
+    void stop_action();
 
     private:
     uint _pin_cassette_detect;
