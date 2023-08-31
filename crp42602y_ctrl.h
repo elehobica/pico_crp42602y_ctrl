@@ -11,14 +11,6 @@
 
 #include "rotation_calc.h"
 
-#if !defined(PICO_CRP42602Y_CTRL_PIO)
-#define PICO_CRP42602Y_CTRL_PIO 0
-#endif
-
-#if !defined(PICO_CRP42602Y_CTRL_PIO_IRQ)
-#define PICO_CRP42602Y_CTRL_PIO_IRQ 0
-#endif
-
 class crp42602y_ctrl {
     private:
     // Definitions
@@ -144,7 +136,7 @@ class crp42602y_ctrl {
     bool _power_enable;
     uint32_t _signal_filter[__NUM_FILTER_SIGNALS__];
     uint16_t _rot_count_history[ROTATION_SENS_STOP_DETECT_MS / PERIODIC_FUNC_MS];
-    uint _sm;
+    rotation_calc _rotation_calc;
 
     command_t _command_history_registered[NUM_COMMAND_HISTORY_REGISTERED];
     command_t _command_history_issued[NUM_COMMAND_HISTORY_ISSUED];
@@ -152,7 +144,6 @@ class crp42602y_ctrl {
     queue_t   _command_queue;
     queue_t   _callback_queue;
     uint      _pwm_slice_num;
-    rotation_calc* _rotation_calc;
 
     void _gpio_callback(uint gpio, uint32_t events);
     void _filter_signal(const filter_signal_t filter_signal, const bool raw_signal, bool& filtered_signal);
@@ -169,6 +160,4 @@ class crp42602y_ctrl {
     bool _stop(const direction_t dir);
     bool _play(const direction_t dir);
     bool _cue(const direction_t dir);
-
-    friend void gpio_callback(uint gpio, uint32_t events);
 };

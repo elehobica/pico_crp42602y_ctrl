@@ -30,7 +30,7 @@ term0_end:
 ; ==============================================================================================
 % c-sdk {
 
-static inline void rotation_term_program_init(PIO pio, uint sm, uint offset, uint entry_point, pio_sm_config (*get_default_config)(uint), uint pin)
+static inline void rotation_term_program_init(PIO pio, uint sm, uint offset, uint entry_point, pio_sm_config (*get_default_config)(uint), uint pin, uint32_t timeout_count)
 {
     pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, false);
     //gpio_set_inover(pin, GPIO_OVERRIDE_NORMAL);
@@ -49,7 +49,7 @@ static inline void rotation_term_program_init(PIO pio, uint sm, uint offset, uin
 
     // set timeout to OSR (use as configration value)
     pio_sm_set_enabled(pio, sm, false);
-    pio_sm_put_blocking(pio, sm, 1000000);  // 1sec count for 1MHz
+    pio_sm_put_blocking(pio, sm, timeout_count);
     pio_sm_exec(pio, sm, pio_encode_pull(false, false));
     pio_sm_exec(pio, sm, pio_encode_out(pio_isr, 32));
     pio_sm_exec(pio, sm, pio_encode_mov(pio_osr, pio_isr));

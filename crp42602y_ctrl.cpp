@@ -8,26 +8,6 @@
 
 #include <cstdio>
 #include "hardware/pwm.h"
-#include "hardware/pio.h"
-#include "hardware/irq.h"
-
-#include "rotation_term.pio.h"
-
-#define CRP42602Y_PIO __CONCAT(pio, PICO_CRP42602Y_CTRL_PIO)
-#define PIO_IRQ_x __CONCAT(__CONCAT(PIO, PICO_CRP42602Y_CTRL_PIO), _IRQ_0)  // e.g. PIO0_IRQ_0
-
-// irq handler for PIO
-void __isr __time_critical_func(crp42602y_ctrl_pio_irq_handler)()
-{
-    if (pio_interrupt_get(CRP42602Y_PIO, 0)) {
-        pio_interrupt_clear(CRP42602Y_PIO, 0);
-        while (pio_sm_get_rx_fifo_level(CRP42602Y_PIO, 0)) {
-            uint32_t val = pio_sm_get_blocking(CRP42602Y_PIO, 0);
-            printf("val = %d\r\n", val);
-        }
-
-    }
-}
 
 crp42602y_ctrl::crp42602y_ctrl(
     uint pin_cassette_detect,
@@ -64,7 +44,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _power_enable(true),
     _signal_filter{},
     _rot_count_history{},
-    _sm(0)
+    _rotation_calc(_pin_rotation_sens)
 {
     for (int i = 0; i < NUM_COMMAND_HISTORY_REGISTERED; i++) {
         _command_history_registered[i] = VOID_COMMAND;
@@ -104,6 +84,7 @@ crp42602y_ctrl::crp42602y_ctrl(
         gpio_set_dir(_pin_power_ctrl, GPIO_OUT);
     }
 
+    /*
     // PIO
     while (pio_sm_is_claimed(CRP42602Y_PIO, _sm)) {
         if (++_sm >= 4) panic("all SMs are reserved");
@@ -129,15 +110,16 @@ crp42602y_ctrl::crp42602y_ctrl(
         offset,
         rotation_term_offset_entry_point,
         rotation_term_program_get_default_config,
-        _pin_rotation_sens
+        _pin_rotation_sens,
+        1000000  // timeout_count
     );
+    */
 }
 
 crp42602y_ctrl::~crp42602y_ctrl()
 {
     queue_free(&_command_queue);
     queue_free(&_callback_queue);
-    pio_sm_unclaim(CRP42602Y_PIO, _sm);
     /*
     // need confirm if other instance still uses the handler
     if (irq_has_shared_handler(PIO_IRQ_x)) {
