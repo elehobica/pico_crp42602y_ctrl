@@ -24,11 +24,12 @@ std::map<uint, rotation_calc*> rotation_calc::_inst_map;
 // irq handler for PIO
 void __isr __time_critical_func(crp42602y_ctrl_pio_irq_handler)()
 {
+    // PIOx_IRQ_0 throws 0 ~ 3 flags corresponding to state machine 0 ~ 3 thanks to 'irq 0 rel' instruction
     for (int i = 0; i < 4; i++) {
         if (pio_interrupt_get(CRP42602Y_PIO, i)) {
             pio_interrupt_clear(CRP42602Y_PIO, i);
             rotation_calc* rc = rotation_calc::_inst_map[i];
-            rc->irq_callback();
+            rc->irq_callback();  // invoke callback of corresponding instance
         }
     }
 }
@@ -111,5 +112,5 @@ void rotation_calc::_mark_half_rotation(uint32_t interval_us)
 
 void rotation_calc::_assert_stop_detection()
 {
-    _ctrl->stop_action();
+    _ctrl->on_rotation_stop();
 }

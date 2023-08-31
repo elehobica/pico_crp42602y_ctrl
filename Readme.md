@@ -22,7 +22,7 @@ Control library for CRP42602Y auto-reverse cassette tape deck mechanism
 | Pin # | Name | Function | Connection |
 ----|----|----|----
 | 1 | REC_B_SW | Rec. protection switch of B side<br>(0: not protected, 1: protected) | to Pico GPIO input |
-| 2 | ROTATION_SENS | Rotation sensor | to Pico GPIO counter input |
+| 2 | ROTATION_SENS | Rotation sensor | to Pico GPIO input |
 | 3 | GEAR_STATUS_SW | Gear status switch<br>(0: in function, 1 not in function) | to Pico GPIO input |
 | 4 | SOLENOID_1 | Solenoid coil 1 | from solenoid driver circuit |
 | 5 | SOLENOID_2 | Solenoid coil 2 | from solenoid driver circuit |

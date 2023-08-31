@@ -101,8 +101,8 @@ class crp42602y_ctrl {
     bool send_command(const command_t& command);
     void register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type));
     void register_callback_all(void (*func)(const callback_type_t callback_type));
+    void on_rotation_stop();
     void process_loop();
-    void stop_action();
 
     private:
     rotation_calc _rotation_calc;

@@ -161,6 +161,41 @@ void crp42602y_ctrl::register_callback_all(void (*func)(const callback_type_t ca
     }
 }
 
+void crp42602y_ctrl::on_rotation_stop()
+{
+    // reverse if previous command is play, or cue after play in same direction
+    bool reverse_flag = _command_history_issued[0].type == CMD_TYPE_PLAY  ||
+                        (_command_history_issued[0].type == CMD_TYPE_CUE && _command_history_issued[1].type == CMD_TYPE_PLAY &&
+                            (_command_history_issued[0].dir == DIR_FORWARD) == _head_dir_is_a);
+    switch (_reverse_mode) {
+    case RVS_ONE_WAY:
+        send_command(STOP_COMMAND);
+        break;
+    case RVS_ONE_ROUND:
+        if (reverse_flag) {
+            if (_head_dir_is_a) {
+                send_command(PLAY_REVERSE_COMMAND);
+            } else {
+                // It is expected to play A at next time after one round stops
+                send_command(STOP_REVERSE_COMMAND);
+            }
+        } else {
+            send_command(STOP_COMMAND);
+        }
+        break;
+    case RVS_INFINITE_ROUND:
+        if (reverse_flag) {
+            send_command(PLAY_REVERSE_COMMAND);
+        } else {
+            send_command(STOP_COMMAND);
+        }
+        break;
+    default:
+        send_command(STOP_COMMAND);
+        break;
+    }
+}
+
 void crp42602y_ctrl::process_loop()
 {
     // Switch filters
@@ -241,41 +276,6 @@ void crp42602y_ctrl::process_loop()
         if (_callbacks[callback_type] != nullptr) {
             _callbacks[callback_type](callback_type);
         }
-    }
-}
-
-void crp42602y_ctrl::stop_action()
-{
-    // reverse if previous command is play, or cue after play in same direction
-    bool reverse_flag = _command_history_issued[0].type == CMD_TYPE_PLAY  ||
-                        (_command_history_issued[0].type == CMD_TYPE_CUE && _command_history_issued[1].type == CMD_TYPE_PLAY &&
-                            (_command_history_issued[0].dir == DIR_FORWARD) == _head_dir_is_a);
-    switch (_reverse_mode) {
-    case RVS_ONE_WAY:
-        send_command(STOP_COMMAND);
-        break;
-    case RVS_ONE_ROUND:
-        if (reverse_flag) {
-            if (_head_dir_is_a) {
-                send_command(PLAY_REVERSE_COMMAND);
-            } else {
-                // It is expected to play A at next time after one round stops
-                send_command(STOP_REVERSE_COMMAND);
-            }
-        } else {
-            send_command(STOP_COMMAND);
-        }
-        break;
-    case RVS_INFINITE_ROUND:
-        if (reverse_flag) {
-            send_command(PLAY_REVERSE_COMMAND);
-        } else {
-            send_command(STOP_COMMAND);
-        }
-        break;
-    default:
-        send_command(STOP_COMMAND);
-        break;
     }
 }
 
