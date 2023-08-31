@@ -9,7 +9,6 @@
 
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
-#include "hardware/pwm.h"
 #include "pico/util/queue.h"
 
 #include "Buttons.h"
@@ -25,7 +24,7 @@ static constexpr uint PIN_LED = PICO_DEFAULT_LED_PIN;
 static constexpr uint PIN_SOLENOID_CTRL   = 2;
 static constexpr uint PIN_CASSETTE_DETECT = 3;
 static constexpr uint PIN_GEAR_STATUS_SW  = 4;
-static constexpr uint PIN_ROTATION_SENS   = 5;  // This needs to be PWM_B pin
+static constexpr uint PIN_ROTATION_SENS   = 5;
 static constexpr uint PIN_POWER_CTRL      = 6;
 
 // EQ NR control pins

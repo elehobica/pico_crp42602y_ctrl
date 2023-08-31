@@ -43,7 +43,6 @@ class crp42602y_ctrl {
     static constexpr int CALLBACK_QUEUE_LENGTH = 4;
     static constexpr int PERIODIC_FUNC_MS = 100;
     static constexpr int SIGNAL_FILTER_MS = 300;
-    static constexpr int ROTATION_SENS_STOP_DETECT_MS = 3000;
     static constexpr int NUM_COMMAND_HISTORY_REGISTERED = 1;
     static constexpr int NUM_COMMAND_HISTORY_ISSUED = 2;
     // Internal commands
@@ -85,7 +84,7 @@ class crp42602y_ctrl {
     crp42602y_ctrl(
         uint pin_cassette_detect,  // GPIO Input: Cassette detection
         uint pin_gear_status_sw,   // GPIO Input: Gear function status switch
-        uint pin_rotation_sens,    // PWM_B Input: Rotation sensor
+        uint pin_rotation_sens,    // GPIO Input: Rotation sensor
         uint pin_solenoid_ctrl,    // GPIO Output: This needs additional circuit to control solenoid
         uint pin_power_enable = 0, // GPIO Output: Power contrl (for timeout disable) (optional: 0 for not use)
         uint pin_rec_a_sw = 0,     // GPIO Input: Rec switch for A (optional: 0 for not use)
@@ -108,9 +107,9 @@ class crp42602y_ctrl {
     void stop_action();
 
     private:
+    rotation_calc _rotation_calc;
     uint _pin_cassette_detect;
     uint _pin_gear_status_sw;
-    uint _pin_rotation_sens;
     uint _pin_solenoid_ctrl;
     uint _pin_power_ctrl;
     uint _pin_rec_a_sw;
@@ -128,7 +127,6 @@ class crp42602y_ctrl {
     bool _playing;
     bool _cueing;
     int _periodic_count;
-    int _rot_stop_ignore_count;
     int _power_off_timeout_count;
     bool _has_cur_gear_status;
     bool _cur_head_dir_is_a;
@@ -136,15 +134,12 @@ class crp42602y_ctrl {
     bool _cur_reel_fwd;
     bool _power_enable;
     uint32_t _signal_filter[__NUM_FILTER_SIGNALS__];
-    uint16_t _rot_count_history[ROTATION_SENS_STOP_DETECT_MS / PERIODIC_FUNC_MS];
-    rotation_calc _rotation_calc;
 
     command_t _command_history_registered[NUM_COMMAND_HISTORY_REGISTERED];
     command_t _command_history_issued[NUM_COMMAND_HISTORY_ISSUED];
     void (*_callbacks[__NUM_CALLBACKS__])(const callback_type_t callback_type);
     queue_t   _command_queue;
     queue_t   _callback_queue;
-    uint      _pwm_slice_num;
 
     void _gpio_callback(uint gpio, uint32_t events);
     void _filter_signal(const filter_signal_t filter_signal, const bool raw_signal, bool& filtered_signal);

@@ -14,7 +14,6 @@ if (NOT TARGET crp42602y_ctrl)
 
     target_link_libraries(crp42602y_ctrl INTERFACE
         pico_stdlib
-        hardware_pwm
         hardware_pio
     )
 endif()
