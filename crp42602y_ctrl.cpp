@@ -6,8 +6,28 @@
 
 #include "crp42602y_ctrl.h"
 
-//#include <cstdio>
+#include <cstdio>
 #include "hardware/pwm.h"
+#include "hardware/pio.h"
+#include "hardware/irq.h"
+
+#include "rotation_term.pio.h"
+
+#define CRP42602Y_PIO __CONCAT(pio, PICO_CRP42602Y_CTRL_PIO)
+#define PIO_IRQ_x __CONCAT(__CONCAT(PIO, PICO_CRP42602Y_CTRL_PIO), _IRQ_0)  // e.g. PIO0_IRQ_0
+
+// irq handler for PIO
+void __isr __time_critical_func(crp42602y_ctrl_pio_irq_handler)()
+{
+    if (pio_interrupt_get(CRP42602Y_PIO, 0)) {
+        pio_interrupt_clear(CRP42602Y_PIO, 0);
+        while (pio_sm_get_rx_fifo_level(CRP42602Y_PIO, 0)) {
+            uint32_t val = pio_sm_get_blocking(CRP42602Y_PIO, 0);
+            printf("val = %d\r\n", val);
+        }
+
+    }
+}
 
 crp42602y_ctrl::crp42602y_ctrl(
     uint pin_cassette_detect,
@@ -43,7 +63,8 @@ crp42602y_ctrl::crp42602y_ctrl(
     _cur_reel_fwd(false),
     _power_enable(true),
     _signal_filter{},
-    _rot_count_history{}
+    _rot_count_history{},
+    _sm(0)
 {
     for (int i = 0; i < NUM_COMMAND_HISTORY_REGISTERED; i++) {
         _command_history_registered[i] = VOID_COMMAND;
@@ -82,12 +103,47 @@ crp42602y_ctrl::crp42602y_ctrl(
         _set_power_enable(true); // set default before setting output mode
         gpio_set_dir(_pin_power_ctrl, GPIO_OUT);
     }
+
+    // PIO
+    while (pio_sm_is_claimed(CRP42602Y_PIO, _sm)) {
+        if (++_sm >= 4) panic("all SMs are reserved");
+    }
+    pio_sm_claim(CRP42602Y_PIO, _sm);
+
+    // PIO_IRQ
+    if (!irq_has_shared_handler(PIO_IRQ_x)) {
+        irq_add_shared_handler(PIO_IRQ_x, crp42602y_ctrl_pio_irq_handler, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY);
+    }
+
+    pio_set_irq0_source_enabled(CRP42602Y_PIO, (enum pio_interrupt_source) ((uint) pis_interrupt0 + _sm), true);   // for IRQ relative
+    pio_set_irq1_source_enabled(CRP42602Y_PIO, (enum pio_interrupt_source) ((uint) pis_interrupt0 + _sm), false);  // not use
+    pio_interrupt_clear(CRP42602Y_PIO, _sm);
+    irq_set_enabled(PIO_IRQ_x, true);
+
+    printf("PIO %d %d\r\n", (int) CRP42602Y_PIO, (int) _sm);
+    // PIO
+    uint offset = pio_add_program(CRP42602Y_PIO, &rotation_term_program);
+    rotation_term_program_init(
+        CRP42602Y_PIO,
+        _sm,
+        offset,
+        rotation_term_offset_entry_point,
+        rotation_term_program_get_default_config,
+        _pin_rotation_sens
+    );
 }
 
 crp42602y_ctrl::~crp42602y_ctrl()
 {
     queue_free(&_command_queue);
     queue_free(&_callback_queue);
+    pio_sm_unclaim(CRP42602Y_PIO, _sm);
+    /*
+    // need confirm if other instance still uses the handler
+    if (irq_has_shared_handler(PIO_IRQ_x)) {
+        irq_remove_handler(PIO_PIO_x, crp42602y_ctrl_pio_irq_handler);
+    }
+    */
 }
 
 void crp42602y_ctrl::periodic_func_100ms()
