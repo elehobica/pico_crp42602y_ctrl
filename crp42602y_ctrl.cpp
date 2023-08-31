@@ -81,22 +81,6 @@ crp42602y_ctrl::~crp42602y_ctrl()
 
 void crp42602y_ctrl::periodic_func_100ms()
 {
-    // Switch filters
-    _filter_signal(FILT_CASSETTE_DETECT, !gpio_get(_pin_cassette_detect), _has_cassette);
-    _filter_signal(FILT_REC_A_OK, ((_pin_rec_a_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_a_ok);
-    _filter_signal(FILT_REC_B_OK, ((_pin_rec_b_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_b_ok);
-
-    // Cassette set/eject detection
-    if (!_prev_has_cassette && _has_cassette) {
-        _dispatch_callback(ON_CASSETTE_SET);
-    } else if (_prev_has_cassette && !_has_cassette) {
-        _dispatch_callback(ON_CASSETTE_EJECT);
-        if (_gear_is_in_func()) {
-            send_command(STOP_COMMAND);
-        }
-    }
-    _prev_has_cassette = _has_cassette;
-
     // Timeout power off (for mechanism)
     if (_pin_power_ctrl == 0 || _gear_is_in_func()) {
         _power_off_timeout_count = 0;
@@ -191,6 +175,22 @@ void crp42602y_ctrl::register_callback_all(void (*func)(const callback_type_t ca
 
 void crp42602y_ctrl::process_loop()
 {
+    // Switch filters
+    _filter_signal(FILT_CASSETTE_DETECT, !gpio_get(_pin_cassette_detect), _has_cassette);
+    _filter_signal(FILT_REC_A_OK, ((_pin_rec_a_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_a_ok);
+    _filter_signal(FILT_REC_B_OK, ((_pin_rec_b_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_b_ok);
+
+    // Cassette set/eject detection
+    if (!_prev_has_cassette && _has_cassette) {
+        _dispatch_callback(ON_CASSETTE_SET);
+    } else if (_prev_has_cassette && !_has_cassette) {
+        _dispatch_callback(ON_CASSETTE_EJECT);
+        if (_gear_is_in_func()) {
+            send_command(STOP_COMMAND);
+        }
+    }
+    _prev_has_cassette = _has_cassette;
+
     // Process command
     while (queue_get_level(&_command_queue) > 0) {
         command_t command;

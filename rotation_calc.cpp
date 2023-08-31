@@ -40,6 +40,7 @@ rotation_calc::rotation_calc(uint pin_rotation_sens, crp42602y_ctrl* ctrl) : _ct
         if (++_sm >= 4) panic("all SMs are reserved");
     }
     pio_sm_claim(CRP42602Y_PIO, _sm);
+    _inst_map[_sm] = this;  // link this instance to corresponding state machine here to pass global interrupt to the instance
 
     // PIO_IRQ
     if (!irq_has_shared_handler(PIO_IRQ_x)) {
@@ -51,7 +52,6 @@ rotation_calc::rotation_calc(uint pin_rotation_sens, crp42602y_ctrl* ctrl) : _ct
     pio_interrupt_clear(CRP42602Y_PIO, _sm);
     irq_set_enabled(PIO_IRQ_x, true);
 
-    printf("PIO %d %d\r\n", (int) CRP42602Y_PIO, (int) _sm);
     // PIO
     uint offset = pio_add_program(CRP42602Y_PIO, &rotation_term_program);
     rotation_term_program_init(
@@ -63,8 +63,6 @@ rotation_calc::rotation_calc(uint pin_rotation_sens, crp42602y_ctrl* ctrl) : _ct
         pin_rotation_sens,
         TIMEOUT_COUNT
     );
-
-    _inst_map[_sm] = this;
 }
 
 rotation_calc::~rotation_calc()
@@ -89,7 +87,6 @@ void rotation_calc::irq_callback()
         }
         accu_time_us += (TIMEOUT_COUNT - val) * PIO_MICRO_SEC_PER_COUNT;
     }
-    //printf("val = %d us\r\n", accu_time_us);
     if (accu_time_us) {
         _mark_half_rotation(accu_time_us);
     } else {
@@ -114,6 +111,5 @@ void rotation_calc::_mark_half_rotation(uint32_t interval_us)
 
 void rotation_calc::_assert_stop_detection()
 {
-    printf("not rotating\r\n");
     _ctrl->stop_action();
 }
