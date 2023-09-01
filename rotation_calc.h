@@ -14,8 +14,6 @@
 #define PICO_CRP42602Y_CTRL_PIO_IRQ 0
 #endif
 
-#include <map>
-
 class crp42602y_ctrl;  // reference to avoid inter lock
 
 class rotation_calc {
@@ -33,7 +31,7 @@ class rotation_calc {
     static constexpr uint32_t PIO_COUNT_DIV = 4;
     static constexpr uint32_t TIMEOUT_COUNT = TIMEOUT_MILLI_SEC * PIO_FREQUENCY_HZ / 1000 / PIO_COUNT_DIV;
 
-    static std::map<uint, rotation_calc*> _inst_map;
+    static rotation_calc* _inst_map[4];
 
     crp42602y_ctrl* _ctrl;
     int _count;

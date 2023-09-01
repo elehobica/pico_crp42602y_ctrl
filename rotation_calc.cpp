@@ -19,17 +19,19 @@
 #define CRP42602Y_PIO __CONCAT(pio, PICO_CRP42602Y_CTRL_PIO)
 #define PIO_IRQ_x __CONCAT(__CONCAT(PIO, PICO_CRP42602Y_CTRL_PIO), _IRQ_0)  // e.g. PIO0_IRQ_0
 
-std::map<uint, rotation_calc*> rotation_calc::_inst_map;
+rotation_calc* rotation_calc::_inst_map[4] = {nullptr, nullptr, nullptr, nullptr};
 
 // irq handler for PIO
 void __isr __time_critical_func(crp42602y_ctrl_pio_irq_handler)()
 {
     // PIOx_IRQ_0 throws 0 ~ 3 flags corresponding to state machine 0 ~ 3 thanks to 'irq 0 rel' instruction
-    for (int i = 0; i < 4; i++) {
-        if (pio_interrupt_get(CRP42602Y_PIO, i)) {
-            pio_interrupt_clear(CRP42602Y_PIO, i);
-            rotation_calc* rc = rotation_calc::_inst_map[i];
-            rc->irq_callback();  // invoke callback of corresponding instance
+    for (uint sm = 0; sm < 4; sm++) {
+        if (pio_interrupt_get(CRP42602Y_PIO, sm)) {
+            pio_interrupt_clear(CRP42602Y_PIO, sm);
+            rotation_calc* rc = rotation_calc::_inst_map[sm];
+            if (rc != nullptr) {
+                rc->irq_callback();  // invoke callback of corresponding instance
+            }
         }
     }
 }
@@ -38,7 +40,7 @@ rotation_calc::rotation_calc(uint pin_rotation_sens, crp42602y_ctrl* ctrl) : _ct
 {
     // PIO
     while (pio_sm_is_claimed(CRP42602Y_PIO, _sm)) {
-        if (++_sm >= 4) panic("all SMs are reserved");
+        if (++_sm >= 4) panic("All PIO state machines are reserved");
     }
     pio_sm_claim(CRP42602Y_PIO, _sm);
     _inst_map[_sm] = this;  // link this instance to corresponding state machine here to pass global interrupt to the instance
@@ -68,6 +70,7 @@ rotation_calc::rotation_calc(uint pin_rotation_sens, crp42602y_ctrl* ctrl) : _ct
 
 rotation_calc::~rotation_calc()
 {
+    _inst_map[_sm] = nullptr;
     pio_sm_unclaim(CRP42602Y_PIO, _sm);
     /*
     // need confirm if other instance still uses the handler
