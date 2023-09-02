@@ -9,7 +9,7 @@
 #include "pico/stdlib.h"
 #include "pico/util/queue.h"
 
-#include "rotation_calc.h"
+#include "crp42602y_counter.h"
 
 class crp42602y_ctrl {
     private:
@@ -106,7 +106,7 @@ class crp42602y_ctrl {
     void process_loop();
 
     private:
-    rotation_calc _rotation_calc;
+    crp42602y_counter _crp42602y_counter;
     uint _pin_cassette_detect;
     uint _pin_gear_status_sw;
     uint _pin_solenoid_ctrl;

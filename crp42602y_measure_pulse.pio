@@ -1,12 +1,14 @@
-.program rotation_term
+.program crp42602y_measure_pulse
 
 timeout:
     in null, 32       [0]  ; 0 indicates timeout
     irq wait 0 rel    [0]  ; relative IRQ allows to distinguish state machine in IRQ handler (IRQ0 0 ~ 3 for sm 0 ~ 3), wait until clear
+
 public entry_point:
 .wrap_target
     out y, 32         [0]  ; update timeout value
-    mov x, !null      [0]  ; set 0xFFFFFFFF to x
+    mov x, !null      [0]  ; set 0xFFFFFFFF to x 
+                           ; (5 cycles from 0->1 edge to here)
 term1:                     ; to count 1-term by 1/4 clock
     jmp pin term1_1   [0]
     jmp term1_end     [0]
@@ -19,6 +21,7 @@ term1_2:
 term1_end:
     in x, 32          [0]  ; send term1 counts
     mov x, !null      [0]  ; set 0xFFFFFFFF to x
+                           ; (4 cycles from 1->0 edge to here)
 term0:                     ; to count 0-term by 1/4 clock
     jmp pin term0_end [1]
     jmp x!=y term0_1  [0]  ; check timeout
@@ -34,7 +37,7 @@ term0_end:
 ; ==============================================================================================
 % c-sdk {
 
-static inline void rotation_term_program_init(PIO pio, uint sm, uint offset, uint entry_point, pio_sm_config (*get_default_config)(uint), uint pin)
+static inline void crp42602y_measure_pulse_program_init(PIO pio, uint sm, uint offset, uint entry_point, pio_sm_config (*get_default_config)(uint), uint pin)
 {
     pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, false);
 

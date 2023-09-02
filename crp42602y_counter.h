@@ -16,10 +16,10 @@
 
 class crp42602y_ctrl;  // reference to avoid inter lock
 
-class rotation_calc {
+class crp42602y_counter {
     public:
-    rotation_calc(uint pin_rotation_sens, crp42602y_ctrl* ctrl);
-    virtual ~rotation_calc();
+    crp42602y_counter(uint pin_rotation_sens, crp42602y_ctrl* ctrl);
+    virtual ~crp42602y_counter();
     void irq_callback();
 
     private:
@@ -30,8 +30,9 @@ class rotation_calc {
     static constexpr uint32_t PIO_FREQUENCY_HZ = 1000000;
     static constexpr uint32_t PIO_COUNT_DIV = 4;
     static constexpr uint32_t TIMEOUT_COUNT = TIMEOUT_MILLI_SEC * PIO_FREQUENCY_HZ / 1000 / PIO_COUNT_DIV;
+    static constexpr uint32_t ADDITIONAL_US = 5 + 4;  // additional cycles from PIO program
 
-    static rotation_calc* _inst_map[4];
+    static crp42602y_counter* _inst_map[4];
 
     crp42602y_ctrl* _ctrl;
     int _count;

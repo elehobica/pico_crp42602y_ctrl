@@ -33,7 +33,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     uint pin_rec_a_sw,
     uint pin_rec_b_sw
 ) :
-    _rotation_calc(pin_rotation_sens, this),
+    _crp42602y_counter(pin_rotation_sens, this),
     _pin_cassette_detect(pin_cassette_detect),
     _pin_gear_status_sw(pin_gear_status_sw),
     _pin_solenoid_ctrl(pin_solenoid_ctrl),

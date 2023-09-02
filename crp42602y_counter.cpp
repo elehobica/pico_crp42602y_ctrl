@@ -7,19 +7,19 @@
 #include <cstdio>
 #include <cmath>
 
-#include "rotation_calc.h"
+#include "crp42602y_counter.h"
 
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
 #include "hardware/irq.h"
 
-#include "rotation_term.pio.h"
+#include "crp42602y_measure_pulse.pio.h"
 #include "crp42602y_ctrl.h"
 
 #define CRP42602Y_PIO __CONCAT(pio, PICO_CRP42602Y_CTRL_PIO)
 #define PIO_IRQ_x __CONCAT(__CONCAT(PIO, PICO_CRP42602Y_CTRL_PIO), _IRQ_0)  // e.g. PIO0_IRQ_0
 
-rotation_calc* rotation_calc::_inst_map[4] = {nullptr, nullptr, nullptr, nullptr};
+crp42602y_counter* crp42602y_counter::_inst_map[4] = {nullptr, nullptr, nullptr, nullptr};
 
 // irq handler for PIO
 void __isr __time_critical_func(crp42602y_ctrl_pio_irq_handler)()
@@ -28,15 +28,15 @@ void __isr __time_critical_func(crp42602y_ctrl_pio_irq_handler)()
     for (uint sm = 0; sm < 4; sm++) {
         if (pio_interrupt_get(CRP42602Y_PIO, sm)) {
             pio_interrupt_clear(CRP42602Y_PIO, sm);  // state machine stalls until clear only when timeout
-            rotation_calc* rc = rotation_calc::_inst_map[sm];
-            if (rc != nullptr) {
-                rc->irq_callback();  // invoke callback of corresponding instance
+            crp42602y_counter* inst = crp42602y_counter::_inst_map[sm];
+            if (inst != nullptr) {
+                inst->irq_callback();  // invoke callback of corresponding instance
             }
         }
     }
 }
 
-rotation_calc::rotation_calc(uint pin_rotation_sens, crp42602y_ctrl* ctrl) :
+crp42602y_counter::crp42602y_counter(uint pin_rotation_sens, crp42602y_ctrl* ctrl) :
     _ctrl(ctrl), _count(0), _sm(0), _accum_time_us_history{}
 {
     // PIO
@@ -57,19 +57,19 @@ rotation_calc::rotation_calc(uint pin_rotation_sens, crp42602y_ctrl* ctrl) :
     irq_set_enabled(PIO_IRQ_x, true);
 
     // PIO
-    uint offset = pio_add_program(CRP42602Y_PIO, &rotation_term_program);
-    rotation_term_program_init(
+    uint offset = pio_add_program(CRP42602Y_PIO, &crp42602y_measure_pulse_program);
+    crp42602y_measure_pulse_program_init(
         CRP42602Y_PIO,
         _sm,
         offset,
-        rotation_term_offset_entry_point,
-        rotation_term_program_get_default_config,
+        crp42602y_measure_pulse_offset_entry_point,
+        crp42602y_measure_pulse_program_get_default_config,
         pin_rotation_sens
     );
     pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) (uint32_t) -TIMEOUT_COUNT);
 }
 
-rotation_calc::~rotation_calc()
+crp42602y_counter::~crp42602y_counter()
 {
     _inst_map[_sm] = nullptr;
     pio_sm_unclaim(CRP42602Y_PIO, _sm);
@@ -81,7 +81,7 @@ rotation_calc::~rotation_calc()
     */
 }
 
-void rotation_calc::irq_callback()
+void crp42602y_counter::irq_callback()
 {
     uint32_t accum_time_us = 0;
     while (pio_sm_get_rx_fifo_level(CRP42602Y_PIO, _sm)) {
@@ -99,16 +99,18 @@ void rotation_calc::irq_callback()
         bool stable = true;
         for (int i = 0; i < sizeof(_accum_time_us_history) / sizeof(uint32_t); i++) {
             if (accum_time_us < _accum_time_us_history[i] * 7/8 || accum_time_us > _accum_time_us_history[i] * 9/8) {
+                // interval time is not stable when the gear function is changing
                 stable = false;
                 break;
             }
         }
         if (stable) {
+            // for early stop detection
             pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) ((int32_t) -(accum_time_us / PIO_COUNT_DIV)));
         } else {
             pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) (uint32_t) -TIMEOUT_COUNT);
         }
-        _mark_half_rotation(accum_time_us);
+        _mark_half_rotation(accum_time_us + ADDITIONAL_US);
     }
     for (int i = sizeof(_accum_time_us_history) / sizeof(uint32_t) - 1; i > 0; i--) {
         _accum_time_us_history[i] = _accum_time_us_history[i - 1];
@@ -116,7 +118,7 @@ void rotation_calc::irq_callback()
     _accum_time_us_history[0] = accum_time_us;
 }
 
-void rotation_calc::_mark_half_rotation(uint32_t interval_us)
+void crp42602y_counter::_mark_half_rotation(uint32_t interval_us)
 {
     float rotation_per_second = 1.0e6 / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO / interval_us;
     float hub_radius = TAPE_SPEED_CM_PER_SEC / 2.0 / M_PI / rotation_per_second;
