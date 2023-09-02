@@ -82,13 +82,13 @@ class crp42602y_ctrl {
     static constexpr command_t REW_COMMAND          = {CMD_TYPE_CUE,  DIR_BACKWARD};
 
     crp42602y_ctrl(
-        uint pin_cassette_detect,  // GPIO Input: Cassette detection
-        uint pin_gear_status_sw,   // GPIO Input: Gear function status switch
-        uint pin_rotation_sens,    // GPIO Input: Rotation sensor
-        uint pin_solenoid_ctrl,    // GPIO Output: This needs additional circuit to control solenoid
-        uint pin_power_enable = 0, // GPIO Output: Power contrl (for timeout disable) (optional: 0 for not use)
-        uint pin_rec_a_sw = 0,     // GPIO Input: Rec switch for A (optional: 0 for not use)
-        uint pin_rec_b_sw = 0     // GPIO Input: Rec switch for B (optional: 0 for not use)
+        const uint pin_cassette_detect,  // GPIO Input: Cassette detection
+        const uint pin_gear_status_sw,   // GPIO Input: Gear function status switch
+        const uint pin_rotation_sens,    // GPIO Input: Rotation sensor
+        const uint pin_solenoid_ctrl,    // GPIO Output: This needs additional circuit to control solenoid
+        const uint pin_power_enable = 0, // GPIO Output: Power contrl (for timeout disable) (optional: 0 for not use)
+        const uint pin_rec_a_sw = 0,     // GPIO Input: Rec switch for A (optional: 0 for not use)
+        const uint pin_rec_b_sw = 0      // GPIO Input: Rec switch for B (optional: 0 for not use)
     );
     virtual ~crp42602y_ctrl();
     bool is_playing() const;
@@ -107,15 +107,12 @@ class crp42602y_ctrl {
 
     private:
     crp42602y_counter _crp42602y_counter;
-    uint _pin_cassette_detect;
-    uint _pin_gear_status_sw;
-    uint _pin_solenoid_ctrl;
-    uint _pin_power_ctrl;
-    uint _pin_rec_a_sw;
-    uint _pin_rec_b_sw;
-    uint _pin_pb_eq_ctrl;
-    uint _pin_dolby_off_ctrl;
-    uint _pin_dolby_c_ctrl;
+    const uint _pin_cassette_detect;
+    const uint _pin_gear_status_sw;
+    const uint _pin_solenoid_ctrl;
+    const uint _pin_power_ctrl;
+    const uint _pin_rec_a_sw;
+    const uint _pin_rec_b_sw;
     bool _head_dir_is_a;
     bool _cue_dir_is_a;
     bool _has_cassette;

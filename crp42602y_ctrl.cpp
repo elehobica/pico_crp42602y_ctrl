@@ -25,13 +25,13 @@ static inline uint32_t _get_diff_time(uint32_t prev, uint32_t now)
 }
 
 crp42602y_ctrl::crp42602y_ctrl(
-    uint pin_cassette_detect,
-    uint pin_gear_status_sw,
-    uint pin_rotation_sens,
-    uint pin_solenoid_ctrl,
-    uint pin_power_ctrl,
-    uint pin_rec_a_sw,
-    uint pin_rec_b_sw
+    const uint pin_cassette_detect,
+    const uint pin_gear_status_sw,
+    const uint pin_rotation_sens,
+    const uint pin_solenoid_ctrl,
+    const uint pin_power_ctrl,
+    const uint pin_rec_a_sw,
+    const uint pin_rec_b_sw
 ) :
     _crp42602y_counter(pin_rotation_sens, this),
     _pin_cassette_detect(pin_cassette_detect),
@@ -292,6 +292,9 @@ void crp42602y_ctrl::process_loop()
             _callbacks[callback_type](callback_type);
         }
     }
+
+    // Process counter
+    _crp42602y_counter._process();
 }
 
 void crp42602y_ctrl::_filter_signal(const filter_signal_t filter_signal, const bool raw_signal, bool& filtered_signal)
