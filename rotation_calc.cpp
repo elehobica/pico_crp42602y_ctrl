@@ -27,7 +27,7 @@ void __isr __time_critical_func(crp42602y_ctrl_pio_irq_handler)()
     // PIOx_IRQ_0 throws 0 ~ 3 flags corresponding to state machine 0 ~ 3 thanks to 'irq 0 rel' instruction
     for (uint sm = 0; sm < 4; sm++) {
         if (pio_interrupt_get(CRP42602Y_PIO, sm)) {
-            pio_interrupt_clear(CRP42602Y_PIO, sm);
+            pio_interrupt_clear(CRP42602Y_PIO, sm);  // state machine stalls until clear only when timeout
             rotation_calc* rc = rotation_calc::_inst_map[sm];
             if (rc != nullptr) {
                 rc->irq_callback();  // invoke callback of corresponding instance
@@ -36,7 +36,8 @@ void __isr __time_critical_func(crp42602y_ctrl_pio_irq_handler)()
     }
 }
 
-rotation_calc::rotation_calc(uint pin_rotation_sens, crp42602y_ctrl* ctrl) : _ctrl(ctrl), _count(0), _sm(0)
+rotation_calc::rotation_calc(uint pin_rotation_sens, crp42602y_ctrl* ctrl) :
+    _ctrl(ctrl), _count(0), _sm(0), _accum_time_us_history{}
 {
     // PIO
     while (pio_sm_is_claimed(CRP42602Y_PIO, _sm)) {
@@ -63,9 +64,9 @@ rotation_calc::rotation_calc(uint pin_rotation_sens, crp42602y_ctrl* ctrl) : _ct
         offset,
         rotation_term_offset_entry_point,
         rotation_term_program_get_default_config,
-        pin_rotation_sens,
-        TIMEOUT_COUNT
+        pin_rotation_sens
     );
+    pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) (uint32_t) -TIMEOUT_COUNT);
 }
 
 rotation_calc::~rotation_calc()
@@ -82,20 +83,37 @@ rotation_calc::~rotation_calc()
 
 void rotation_calc::irq_callback()
 {
-    uint32_t accu_time_us = 0;
+    uint32_t accum_time_us = 0;
     while (pio_sm_get_rx_fifo_level(CRP42602Y_PIO, _sm)) {
         uint32_t val = pio_sm_get_blocking(CRP42602Y_PIO, _sm);
-        if (val == 0xffffffff) {  // timeout
-            accu_time_us = 0;
+        if (val == 0) {  // timeout
+            accum_time_us = 0;
             break;
         }
-        accu_time_us += (TIMEOUT_COUNT - val) * PIO_COUNT_DIV;
+        accum_time_us += -((int32_t) val) * PIO_COUNT_DIV;  // val is always negative value
     }
-    if (accu_time_us) {
-        _mark_half_rotation(accu_time_us);
+    if (accum_time_us == 0) {
+        pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) (uint32_t) -TIMEOUT_COUNT);
+        _ctrl->on_rotation_stop();
     } else {
-        _assert_stop_detection();
+        bool stable = true;
+        for (int i = 0; i < sizeof(_accum_time_us_history) / sizeof(uint32_t); i++) {
+            if (accum_time_us < _accum_time_us_history[i] * 7/8 || accum_time_us > _accum_time_us_history[i] * 9/8) {
+                stable = false;
+                break;
+            }
+        }
+        if (stable) {
+            pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) ((int32_t) -(accum_time_us / PIO_COUNT_DIV)));
+        } else {
+            pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) (uint32_t) -TIMEOUT_COUNT);
+        }
+        _mark_half_rotation(accum_time_us);
     }
+    for (int i = sizeof(_accum_time_us_history) / sizeof(uint32_t) - 1; i > 0; i--) {
+        _accum_time_us_history[i] = _accum_time_us_history[i - 1];
+    }
+    _accum_time_us_history[0] = accum_time_us;
 }
 
 void rotation_calc::_mark_half_rotation(uint32_t interval_us)
@@ -111,9 +129,4 @@ void rotation_calc::_mark_half_rotation(uint32_t interval_us)
         printf("hub rotations = %d\r\n", (int) (hub_rotations * 1000));
     }
     _count++;
-}
-
-void rotation_calc::_assert_stop_detection()
-{
-    _ctrl->on_rotation_stop();
 }

@@ -129,6 +129,7 @@ class crp42602y_ctrl {
     bool _cur_head_dir_is_a;
     bool _cur_lift_head;
     bool _cur_reel_fwd;
+    uint32_t _gear_last_time;
     bool _power_enable;
     uint32_t _signal_filter[__NUM_FILTER_SIGNALS__];
 

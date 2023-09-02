@@ -1,25 +1,29 @@
 .program rotation_term
 
 timeout:
-    in x, 32          [0]  ; 0xFFFFFFFF (-1) should be sent for timeout
-    irq wait 0 rel    [0]  ; relative IRQ allows to distinguish state machine in IRQ handler (IRQ0 0 ~ 3 for sm 0 ~ 3)
+    in null, 32       [0]  ; 0 indicates timeout
+    irq wait 0 rel    [0]  ; relative IRQ allows to distinguish state machine in IRQ handler (IRQ0 0 ~ 3 for sm 0 ~ 3), wait until clear
 public entry_point:
-    wait 0 pin 0      [0]
-    wait 1 pin 0      [0]
-
 .wrap_target
-    mov x, osr        [0]
+    out y, 32         [0]  ; update timeout value
+    mov x, !null      [0]  ; set 0xFFFFFFFF to x
 term1:                     ; to count 1-term by 1/4 clock
-    jmp pin term1_1   [1]
+    jmp pin term1_1   [0]
     jmp term1_end     [0]
 term1_1:
+    jmp x!=y term1_2  [0]  ; check timeout
+    jmp timeout       [0]
+term1_2:
     jmp x-- term1     [1]  ; count div by 4 cycles
     jmp timeout       [0]
 term1_end:
     in x, 32          [0]  ; send term1 counts
-    mov x, osr        [0]
+    mov x, !null      [0]  ; set 0xFFFFFFFF to x
 term0:                     ; to count 0-term by 1/4 clock
-    jmp pin term0_end [2]
+    jmp pin term0_end [1]
+    jmp x!=y term0_1  [0]  ; check timeout
+    jmp timeout       [0]
+term0_1:
     jmp x-- term0     [0]  ; count div by 4 cycles
     jmp timeout       [0]
 term0_end:
@@ -30,10 +34,9 @@ term0_end:
 ; ==============================================================================================
 % c-sdk {
 
-static inline void rotation_term_program_init(PIO pio, uint sm, uint offset, uint entry_point, pio_sm_config (*get_default_config)(uint), uint pin, uint32_t timeout_count)
+static inline void rotation_term_program_init(PIO pio, uint sm, uint offset, uint entry_point, pio_sm_config (*get_default_config)(uint), uint pin)
 {
     pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, false);
-    //gpio_set_inover(pin, GPIO_OVERRIDE_NORMAL);
 
     pio_sm_config sm_config = (*get_default_config)(offset);
 
@@ -42,17 +45,11 @@ static inline void rotation_term_program_init(PIO pio, uint sm, uint offset, uin
     sm_config_set_in_pins(&sm_config, pin); // PINCTRL_IN_BASE for wait
     sm_config_set_out_shift(&sm_config, false, true, 32);  // shift_left, autopull, 32bit
     sm_config_set_in_shift(&sm_config, false, true, 32);  // shift_left, autopush, 32bit
-    //sm_config_set_fifo_join(&sm_config, PIO_FIFO_JOIN_RX);
 
     pio_sm_init(pio, sm, offset, &sm_config);
     pio_sm_set_pins(pio, sm, 0); // clear pins
 
-    // set timeout to OSR (use as configration value)
     pio_sm_set_enabled(pio, sm, false);
-    pio_sm_put_blocking(pio, sm, timeout_count);
-    pio_sm_exec(pio, sm, pio_encode_pull(false, false));  // --> OSR
-    //pio_sm_exec(pio, sm, pio_encode_out(pio_isr, 32));
-    //pio_sm_exec(pio, sm, pio_encode_mov(pio_osr, pio_isr));
     pio_sm_clear_fifos(pio, sm);
     pio_sm_drain_tx_fifo(pio, sm);
     pio_sm_set_enabled(pio, sm, true);

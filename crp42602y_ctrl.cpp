@@ -43,6 +43,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _cur_head_dir_is_a(false),
     _cur_lift_head(false),
     _cur_reel_fwd(false),
+    _gear_last_time(0),
     _power_enable(true),
     _signal_filter{}
 {
@@ -163,6 +164,10 @@ void crp42602y_ctrl::register_callback_all(void (*func)(const callback_type_t ca
 
 void crp42602y_ctrl::on_rotation_stop()
 {
+    if (!_gear_is_in_func()) return;
+    uint32_t now = _millis();
+    if (now < _gear_last_time + 1000) return;
+
     // reverse if previous command is play, or cue after play in same direction
     bool reverse_flag = _command_history_issued[0].type == CMD_TYPE_PLAY  ||
                         (_command_history_issued[0].type == CMD_TYPE_CUE && _command_history_issued[1].type == CMD_TYPE_PLAY &&
@@ -345,6 +350,8 @@ bool crp42602y_ctrl::_gear_func_sequence(const bool head_dir_is_a, const bool li
         sleep_ms(tWaitMotorStable);
     }
 
+    _gear_last_time = _millis();
+
     // Function sequence has 190 degree of function gear to rotate in 400 ms
     // Timing definitions (milliseconds) (All values are set experimentally)
     constexpr uint32_t tInitS     = 0;           // Unhook the function gear
@@ -383,6 +390,8 @@ bool crp42602y_ctrl::_gear_func_sequence(const bool head_dir_is_a, const bool li
 
 bool crp42602y_ctrl::_gear_return_sequence()
 {
+    _gear_last_time = _millis();
+
     // Return sequence has (360 - 190) degree of function gear,
     //  which is needed to take another function when the gear is already in function position
     //  it is supposed to take 360 ms

@@ -36,9 +36,9 @@ class rotation_calc {
     crp42602y_ctrl* _ctrl;
     int _count;
     uint _sm;
+    uint32_t _accum_time_us_history[4];
 
     void _mark_half_rotation(uint32_t interval_us);
-    void _assert_stop_detection();
 
     friend void crp42602y_ctrl_pio_irq_handler();
 };
