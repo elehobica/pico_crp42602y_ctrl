@@ -8,9 +8,20 @@
 
 //#include <cstdio>
 
-static inline uint32_t _millis(void)
+static inline uint32_t _millis()
 {
     return to_ms_since_boot(get_absolute_time());
+}
+
+static inline uint32_t _get_diff_time(uint32_t prev, uint32_t now)
+{
+    uint32_t diff_time;
+    if (now < prev) {
+        diff_time = 0xffffffffUL - prev + now + 1;
+    } else {
+        diff_time = now - prev;
+    }
+    return diff_time;
 }
 
 crp42602y_ctrl::crp42602y_ctrl(
@@ -38,6 +49,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _reverse_mode(RVS_ONE_ROUND),
     _playing(false),
     _cueing(false),
+    _prev_filter_time(0),
     _prev_func_time(0),
     _has_cur_gear_status(false),
     _cur_head_dir_is_a(false),
@@ -203,10 +215,15 @@ void crp42602y_ctrl::on_rotation_stop()
 
 void crp42602y_ctrl::process_loop()
 {
-    // Switch filters
-    _filter_signal(FILT_CASSETTE_DETECT, !gpio_get(_pin_cassette_detect), _has_cassette);
-    _filter_signal(FILT_REC_A_OK, ((_pin_rec_a_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_a_ok);
-    _filter_signal(FILT_REC_B_OK, ((_pin_rec_b_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_b_ok);
+    uint32_t now = _millis();
+
+    if (_get_diff_time(_prev_filter_time, now) >= SIGNAL_FILTER_MS) {
+        // Switch filters
+        _filter_signal(FILT_CASSETTE_DETECT, !gpio_get(_pin_cassette_detect), _has_cassette);
+        _filter_signal(FILT_REC_A_OK, ((_pin_rec_a_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_a_ok);
+        _filter_signal(FILT_REC_B_OK, ((_pin_rec_b_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_b_ok);
+        _prev_filter_time = now;
+    }
 
     // Cassette set/eject detection
     if (!_prev_has_cassette && _has_cassette) {
@@ -220,17 +237,10 @@ void crp42602y_ctrl::process_loop()
     _prev_has_cassette = _has_cassette;
 
     // Timeout power off (for mechanism)
-    uint32_t now = _millis();
     if (_gear_is_in_func() || !_get_power_enable() || _pin_power_ctrl == 0) {
         _prev_func_time = now;
     }
-    uint32_t diff_time;
-    if (now < _prev_func_time) {
-        diff_time = 0xffffffffUL - _prev_func_time + now + 1;
-    } else {
-        diff_time = now - _prev_func_time;
-    }
-    if (diff_time >= POWER_OFF_TIMEOUT_SEC * 1000 && _get_power_enable()) {
+    if (_get_diff_time(_prev_func_time, now) >= POWER_OFF_TIMEOUT_SEC * 1000 && _get_power_enable()) {
         _set_power_enable(false);
         _dispatch_callback(ON_TIMEOUT_POWER_OFF);
     }

@@ -41,6 +41,7 @@ class crp42602y_ctrl {
     static constexpr uint32_t POWER_OFF_TIMEOUT_SEC = 300;
     static constexpr uint     COMMAND_QUEUE_LENGTH = 4;
     static constexpr uint     CALLBACK_QUEUE_LENGTH = 4;
+    static constexpr uint32_t SIGNAL_FILTER_MS = 100;
     static constexpr uint32_t SIGNAL_FILTER_TIMES = 3;
     static constexpr int      NUM_COMMAND_HISTORY_REGISTERED = 1;
     static constexpr int      NUM_COMMAND_HISTORY_ISSUED = 2;
@@ -124,6 +125,7 @@ class crp42602y_ctrl {
     reverse_mode_t _reverse_mode;
     bool _playing;
     bool _cueing;
+    uint32_t _prev_filter_time;
     uint32_t _prev_func_time;
     bool _has_cur_gear_status;
     bool _cur_head_dir_is_a;

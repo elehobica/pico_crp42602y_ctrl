@@ -93,12 +93,12 @@ const uint8_t font_reverse_mode[] =
     0x10,0x08,0xFE,0x08,0x7C,0x08,0x38,0x08,0x10,0x08,0x20,0x04,0xC0,0x03,0x00,0x00
 };
 
-static inline uint64_t _micros(void)
+static inline uint64_t _micros()
 {
     return to_us_since_boot(get_absolute_time());
 }
 
-static inline uint32_t _millis(void)
+static inline uint32_t _millis()
 {
     return to_ms_since_boot(get_absolute_time());
 }

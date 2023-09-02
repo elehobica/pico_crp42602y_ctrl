@@ -33,12 +33,12 @@ static constexpr int CALLBACK_QUEUE_LENGTH = 16;
 // Instances
 crp42602y_ctrl *crp42602y_ctrl0 = nullptr;
 
-static inline uint64_t _micros(void)
+static inline uint64_t _micros()
 {
     return to_us_since_boot(get_absolute_time());
 }
 
-static inline uint32_t _millis(void)
+static inline uint32_t _millis()
 {
     return to_ms_since_boot(get_absolute_time());
 }
