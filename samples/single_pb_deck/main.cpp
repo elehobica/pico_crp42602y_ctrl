@@ -352,6 +352,14 @@ void inc_nr(bool inc = true)
     ssd1306_show(&disp);
 }
 
+void reset_counter()
+{
+    if (crp42602y_counter0 != nullptr) {
+        printf("Reset counter\r\n");
+        crp42602y_counter0->reset_counter();
+    }
+}
+
 void disp_default_contents()
 {
     _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
@@ -451,6 +459,7 @@ int main()
             if (c == 'v') inc_reverse_mode();
             if (c == 'e') inc_eq();
             if (c == 'n') inc_nr();
+            if (c == 'c') reset_counter();
         }
 
         // Button I/F
@@ -490,6 +499,9 @@ int main()
                 break;
             case EVT_LONG:
                 //printf("%s: Long\r\n", btnEvent.button_name);
+                if (strncmp(btnEvent.button_name, "left", 4) == 0) {
+                    reset_counter();
+                }
                 break;
             case EVT_LONG_LONG:
                 //printf("%s: LongLong\r\n", btnEvent.button_name);

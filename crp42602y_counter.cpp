@@ -101,6 +101,12 @@ float crp42602y_counter::get_counter()
     return _total_playing_sec[!is_dir_a];
 }
 
+void crp42602y_counter::reset_counter()
+{
+    _total_playing_sec[0] = 0.0;
+    _total_playing_sec[1] = 0.0;
+}
+
 void crp42602y_counter::_irq_callback()
 {
     uint32_t accum_time_us = 0;
@@ -144,7 +150,6 @@ void crp42602y_counter::_irq_callback()
                 // warning
             }
         }
-        //_mark_half_rotation(accum_time_us + ADDITIONAL_US);
     }
     for (int i = sizeof(_accum_time_us_history) / sizeof(uint32_t) - 1; i > 0; i--) {
         _accum_time_us_history[i] = _accum_time_us_history[i - 1];
@@ -218,20 +223,3 @@ void crp42602y_counter::_process()
         }
     }
 }
-
-/*
-void crp42602y_counter::_mark_half_rotation(uint32_t interval_us)
-{
-    float rotation_per_second = 1.0e6 / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO / interval_us;
-    float hub_radius_cm = TAPE_SPEED_CM_PER_SEC / 2.0 / M_PI / rotation_per_second;
-    float hub_rotations = (float) _count / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO;
-    if (_count % 10 == 0) {
-        printf("--------\r\n");
-        printf("interval_us = %d\r\n", (int) interval_us);
-        printf("rps = %d\r\n", (int) (rotation_per_second * 1000));
-        printf("radius = %d\r\n", (int) (hub_radius_cm * 1000));
-        printf("hub rotations = %d\r\n", (int) (hub_rotations * 1000));
-    }
-    _count++;
-}
-*/

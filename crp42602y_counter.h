@@ -23,6 +23,7 @@ class crp42602y_counter {
     crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl);
     virtual ~crp42602y_counter();
     float get_counter();
+    void reset_counter();
 
     private:
     static constexpr float    TAPE_SPEED_CM_PER_SEC = 4.75;
@@ -56,7 +57,6 @@ class crp42602y_counter {
 
     void _irq_callback();
     void _process();
-    //void _mark_half_rotation(uint32_t interval_us);
 
     friend crp42602y_ctrl;
     friend void crp42602y_counter_pio_irq_handler();
