@@ -46,8 +46,8 @@ class crp42602y_counter {
     uint _sm;
     uint32_t _accum_time_us_history[4];
     float _total_playing_sec[2];
+    float _last_hub_radius_cm[2];
     float _hub_radius_cm_history[NUM_HUB_ROTATION_HISTORY - NUM_IGNORE_HUB_ROTATION_HISTORY2];
-    float _last_hub_radius_cm;
     float _ref_hub_radius_cm;
     int   _num_average;
     float _average_hub_radius_cm;
