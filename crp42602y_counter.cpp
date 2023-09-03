@@ -43,7 +43,12 @@ void __isr __time_critical_func(crp42602y_counter_pio_irq_handler)()
 }
 
 crp42602y_counter::crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl) :
-    _ctrl(ctrl), _count(0), _sm(0), _accum_time_us_history{}
+    _ctrl(ctrl), _count(0), _sm(0), _accum_time_us_history{}, _total_playing_sec{NAN, NAN},
+    _hub_radius_cm_history{}, _hub_rotations_history{},
+    _last_hub_radius_cm(0.0),
+    _ref_hub_radius_cm(0.0), _ref_hub_rotations(0.0),
+    _average_hub_radius_cm(0.0), _average_hub_rotations(0.0),
+    _tape_thickness_um(NAN)
 {
     queue_init(&_rotation_event_queue, sizeof(rotation_event_t), ROTATION_EVENT_QUEUE_LENGTH);
 
@@ -90,6 +95,12 @@ crp42602y_counter::~crp42602y_counter()
     */
 }
 
+float crp42602y_counter::get_counter()
+{
+    bool is_dir_a = _ctrl->get_head_dir_is_a();
+    return _total_playing_sec[!is_dir_a];
+}
+
 void crp42602y_counter::_irq_callback()
 {
     uint32_t accum_time_us = 0;
@@ -121,7 +132,8 @@ void crp42602y_counter::_irq_callback()
         }
         bool is_playing = _ctrl->is_playing();
         bool is_cueing = _ctrl->is_cueing();
-        if (is_playing || is_cueing) {
+        bool gear_is_in_func = _ctrl->_gear_is_in_func();
+        if (gear_is_in_func && (is_playing || is_cueing)) {
             bool is_dir_a = (is_playing) ? _ctrl->get_head_dir_is_a() : _ctrl->get_cue_dir_is_a();
             rotation_event_t event = {
                 accum_time_us + ADDITIONAL_US,
@@ -146,18 +158,64 @@ void crp42602y_counter::_process()
         rotation_event_t event;
         queue_remove_blocking(&_rotation_event_queue, &event);
         if (event.is_playing_otherwise_cueing) {
+            // rotation calculation
             float rotation_per_second = 1.0e6 / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO / event.interval_us;
-            float hub_radius = TAPE_SPEED_CM_PER_SEC / 2.0 / M_PI / rotation_per_second;
+            float hub_radius_cm = TAPE_SPEED_CM_PER_SEC / 2.0 / M_PI / rotation_per_second;
             float hub_rotations = (float) _count / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO;
+            // reflect to data
+            float add_time = event.interval_us / 1e6;
+            if (std::isnan(_total_playing_sec[!event.is_dir_a])) _total_playing_sec[!event.is_dir_a] = 0.0;
+            _total_playing_sec[!event.is_dir_a] += add_time;
+            if (std::isnan(_total_playing_sec[event.is_dir_a])) _total_playing_sec[event.is_dir_a] = 0.0;
+            _total_playing_sec[event.is_dir_a] -= add_time;
+            for (int i = NUM_HUB_ROTATION_HISTORY - 1; i > 0; i--) {
+                _hub_radius_cm_history[i] = _hub_radius_cm_history[i - 1];
+                _hub_rotations_history[i] = _hub_rotations_history[i - 1];
+            }
+            _hub_radius_cm_history[0] = hub_radius_cm;
+            _hub_rotations_history[0] = hub_rotations;
+            _average_hub_radius_cm = 0.0;
+            _average_hub_rotations = 0.0;
+            for (int i = NUM_IGNORE_HUB_ROTATION_HISTORY; i < NUM_HUB_ROTATION_HISTORY; i++) {
+                _average_hub_radius_cm += _hub_radius_cm_history[i];
+                _average_hub_rotations += _hub_rotations_history[i];
+            }
+            _average_hub_radius_cm /= NUM_HUB_ROTATION_HISTORY - NUM_IGNORE_HUB_ROTATION_HISTORY;
+            _average_hub_rotations /= NUM_HUB_ROTATION_HISTORY - NUM_IGNORE_HUB_ROTATION_HISTORY;
+            _last_hub_radius_cm = _average_hub_radius_cm;
+            if (_count == 40) {
+                _ref_hub_radius_cm = _average_hub_radius_cm;
+                _ref_hub_rotations = _average_hub_rotations;
+            } else if (_count >= 50 && _count % 10 == 0) {
+                float diff_hub_radius_cm = _average_hub_radius_cm - _ref_hub_radius_cm;
+                float diff_hub_rotations = _average_hub_rotations - _ref_hub_rotations;
+                //float diff_hub_rotations = 1.0 / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO;
+                _tape_thickness_um = diff_hub_radius_cm * 1e4 / diff_hub_rotations;
+            }
             if (_count % 10 == 0) {
                 printf("--------\r\n");
                 printf("interval_us = %d\r\n", (int) event.interval_us);
-                printf("rps = %d\r\n", (int) (rotation_per_second * 1000));
-                printf("radius = %d\r\n", (int) (hub_radius * 1000));
-                printf("hub rotations = %d\r\n", (int) (hub_rotations * 1000));
+                printf("rps = %7.4f\r\n", rotation_per_second);
+                printf("radius = %7.4f\r\n", hub_radius_cm);
+                printf("hub rotations = %7.4f\r\n", hub_rotations);
+                printf("tape thicknesss (um)= %7.4f\r\n", _tape_thickness_um);
+                printf("time A = %7.4f\r\n", _total_playing_sec[0]);
+                printf("time B = %7.4f\r\n", _total_playing_sec[1]);
             }
+            _count++;
+        } else {
+            // rotation calculation
+            float hub_rotations = (float) _count / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO;
+            float diff_hub_rotations = 1.0 / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO;
+            if (!std::isnan(_total_playing_sec[!event.is_dir_a])) {
+                float add_time = 2.0 * M_PI * _last_hub_radius_cm * diff_hub_rotations / TAPE_SPEED_CM_PER_SEC;
+                //printf("%7.4f %7.4f %7.4f %7.4f\r\n", add_time, hub_rotations, _last_hub_radius_cm, diff_hub_rotations);
+                _total_playing_sec[!event.is_dir_a] += add_time;
+                _total_playing_sec[event.is_dir_a] -= add_time;
+            }
+            _last_hub_radius_cm += _tape_thickness_um / 1e4 * diff_hub_rotations;
+            _count++;
         }
-        _count++;
     }
 }
 
@@ -165,13 +223,13 @@ void crp42602y_counter::_process()
 void crp42602y_counter::_mark_half_rotation(uint32_t interval_us)
 {
     float rotation_per_second = 1.0e6 / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO / interval_us;
-    float hub_radius = TAPE_SPEED_CM_PER_SEC / 2.0 / M_PI / rotation_per_second;
+    float hub_radius_cm = TAPE_SPEED_CM_PER_SEC / 2.0 / M_PI / rotation_per_second;
     float hub_rotations = (float) _count / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO;
     if (_count % 10 == 0) {
         printf("--------\r\n");
         printf("interval_us = %d\r\n", (int) interval_us);
         printf("rps = %d\r\n", (int) (rotation_per_second * 1000));
-        printf("radius = %d\r\n", (int) (hub_radius * 1000));
+        printf("radius = %d\r\n", (int) (hub_radius_cm * 1000));
         printf("hub rotations = %d\r\n", (int) (hub_rotations * 1000));
     }
     _count++;

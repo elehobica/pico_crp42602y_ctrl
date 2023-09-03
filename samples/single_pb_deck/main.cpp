@@ -5,7 +5,9 @@
 /------------------------------------------------------*/
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <cmath>
 
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
@@ -61,8 +63,8 @@ static button_t btns_5way_tactile_plus2[] = {
     {"reset",  PIN_RESET_BUTTON,  &Buttons::DEFAULT_BUTTON_SINGLE_CONFIG},
     {"set",    PIN_SET_BUTTON,    &Buttons::DEFAULT_BUTTON_SINGLE_CONFIG},
     {"center", PIN_CENTER_BUTTON, &Buttons::DEFAULT_BUTTON_MULTI_CONFIG},
-    {"right",  PIN_RIGHT_BUTTON,  &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG},
-    {"left",   PIN_LEFT_BUTTON,   &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG},
+    {"right",  PIN_RIGHT_BUTTON,  &Buttons::DEFAULT_BUTTON_MULTI_CONFIG},
+    {"left",   PIN_LEFT_BUTTON,   &Buttons::DEFAULT_BUTTON_MULTI_CONFIG},
     {"down",   PIN_DOWN_BUTTON,   &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG},
     {"up",     PIN_UP_BUTTON,     &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG}
 };
@@ -70,6 +72,7 @@ static button_t btns_5way_tactile_plus2[] = {
 // Instances
 Buttons* buttons = nullptr;
 crp42602y_ctrl *crp42602y_ctrl0 = nullptr;
+crp42602y_counter *crp42602y_counter0 = nullptr;
 eq_nr *eq_nr0 = nullptr;
 ssd1306_t disp;
 
@@ -404,6 +407,7 @@ int main()
     queue_init(&_callback_queue, sizeof(crp42602y_ctrl::callback_type_t), CALLBACK_QUEUE_LENGTH);
     crp42602y_ctrl0 = new crp42602y_ctrl(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL, PIN_POWER_CTRL);
     crp42602y_ctrl0->register_callback_all(crp42602y_callback);
+    crp42602y_counter0 = crp42602y_ctrl0->get_counter_inst();
 
     // EQ_NR
     eq_nr0 = new eq_nr(PIN_EQ_CTRL, PIN_NR_CTRL0, PIN_NR_CTRL1);
@@ -578,34 +582,44 @@ int main()
             }
         }
 
-        // Image Display
         if (now_time - prev_disp_time > 50) {
             if (_crp42602y_power) {
+                // Image Display
+                _ssd1306_clear_square(&disp, 0, 16, 128, 8*4);
                 if (!_has_cassette) {
-                    _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
                     ssd1306_draw_string(&disp, 32, 32-4, 1, "NO CASSETTE");
-                    ssd1306_show(&disp);
                     disp_count = 0;
                 } else {
                     if (crp42602y_ctrl0->is_playing()) {
                         uint32_t pos = disp_count/4 % 16;
-                        _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
                         _ssd1306_draw_play_arrow(&disp, crp42602y_ctrl0->get_head_dir_is_a(), pos);
-                        ssd1306_show(&disp);
                         disp_count++;
                     } else if (crp42602y_ctrl0->is_cueing()) {
                         uint32_t pos = disp_count % 16;
-                        _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
                         _ssd1306_draw_cue_arrow(&disp, crp42602y_ctrl0->get_cue_dir_is_a(), pos);
-                        ssd1306_show(&disp);
                         disp_count++;
                     } else {  // STOP
-                        _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
                         _ssd1306_draw_stop_arrow(&disp, crp42602y_ctrl0->get_head_dir_is_a());
-                        ssd1306_show(&disp);
                         disp_count = 0;
                     }
                 }
+                // Counter
+                _ssd1306_clear_square(&disp, 6*6, 64-8, 6*7, 8);
+                float counter_sec_f = crp42602y_counter0->get_counter();
+                if (std::isnan(counter_sec_f)) {
+                    ssd1306_draw_string(&disp, 6*6, 64-8, 1, "  --:--");
+                } else {
+                    int counter_sec = (int) counter_sec_f;
+                    int counter_min = counter_sec / 60;
+                    char str[16];
+                    if (counter_sec < 0 && counter_min == 0) {
+                        sprintf(str, "  -0:%02d", abs(counter_sec) % 60);
+                    } else {
+                        sprintf(str, "%4d:%02d", counter_min, abs(counter_sec) % 60);
+                    }
+                    ssd1306_draw_string(&disp, 6*6, 64-8, 1, str);
+                }
+                ssd1306_show(&disp);
             } else {
                 disp_count = 0;
             }

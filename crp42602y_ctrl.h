@@ -91,6 +91,7 @@ class crp42602y_ctrl {
         const uint pin_rec_b_sw = 0      // GPIO Input: Rec switch for B (optional: 0 for not use)
     );
     virtual ~crp42602y_ctrl();
+    crp42602y_counter* get_counter_inst();
     bool is_playing() const;
     bool is_cueing() const;
     bool set_head_dir_is_a(const bool head_dir_is_a);
@@ -153,4 +154,6 @@ class crp42602y_ctrl {
     bool _stop(const direction_t dir);
     bool _play(const direction_t dir);
     bool _cue(const direction_t dir);
+
+    friend crp42602y_counter;
 };

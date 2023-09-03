@@ -96,6 +96,11 @@ crp42602y_ctrl::~crp42602y_ctrl()
     queue_free(&_callback_queue);
 }
 
+crp42602y_counter* crp42602y_ctrl::get_counter_inst()
+{
+    return &_crp42602y_counter;
+}
+
 bool crp42602y_ctrl::is_playing() const
 {
     return _playing;
