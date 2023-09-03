@@ -36,7 +36,8 @@ class crp42602y_counter {
     static constexpr uint32_t ADDITIONAL_US = 5 + 4;  // additional cycles from PIO program
     static constexpr uint     ROTATION_EVENT_QUEUE_LENGTH = 4;
     static constexpr int      NUM_HUB_ROTATION_HISTORY = 15;
-    static constexpr int      NUM_IGNORE_HUB_ROTATION_HISTORY = 5;
+    static constexpr int      NUM_IGNORE_HUB_ROTATION_HISTORY1 = 5;
+    static constexpr int      NUM_IGNORE_HUB_ROTATION_HISTORY2 = 2;
 
     static crp42602y_counter* _inst_map[4];
 
@@ -45,13 +46,11 @@ class crp42602y_counter {
     uint _sm;
     uint32_t _accum_time_us_history[4];
     float _total_playing_sec[2];
-    float _hub_radius_cm_history[NUM_HUB_ROTATION_HISTORY];
-    float _hub_rotations_history[NUM_HUB_ROTATION_HISTORY];
+    float _hub_radius_cm_history[NUM_HUB_ROTATION_HISTORY - NUM_IGNORE_HUB_ROTATION_HISTORY2];
     float _last_hub_radius_cm;
     float _ref_hub_radius_cm;
-    float _ref_hub_rotations;
+    int   _num_average;
     float _average_hub_radius_cm;
-    float _average_hub_rotations;
     float _tape_thickness_um;
     queue_t _rotation_event_queue;
 
