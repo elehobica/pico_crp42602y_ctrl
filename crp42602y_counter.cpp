@@ -135,13 +135,15 @@ void crp42602y_counter::_correct_tape_thickness_um()
         _tape_thickness_um = 18.0;  // correct to 12 um (C-60, C-46)
     }
     */
-    // standardize value
-    if (_tape_thickness_um < 10.5) {
-        _tape_thickness_um = 9.0;  // correct to 9 um (C-120)
+    // standardized value
+    if (_tape_thickness_um < 7.5) {
+        _tape_thickness_um = 6.0;  // correct to 6 um (C-120)
+    } else if (_tape_thickness_um < 10.5) {
+        _tape_thickness_um = 9.0;  // correct to 9 um (C-100)
     } else if (_tape_thickness_um < 15.0) {
         _tape_thickness_um = 12.0;  // correct to 12 um (C-90)
     } else {
-        _tape_thickness_um = 18.0;  // correct to 12 um (C-60, C-46)
+        _tape_thickness_um = 18.0;  // correct to 18 um (C-60, C-46)
     }
 }
 
