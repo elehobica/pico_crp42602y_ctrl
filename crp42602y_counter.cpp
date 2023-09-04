@@ -49,14 +49,16 @@ void __isr __time_critical_func(crp42602y_counter_pio_irq_handler)()
 }
 
 crp42602y_counter::crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl) :
-    _ctrl(ctrl), _count(0), _sm(0), _accum_time_us_history{},
+    _ctrl(ctrl),
+    _state(UNDETERMINED), _count(0), _sm(0), _accum_time_us_history{},
     _total_playing_sec{NAN, NAN},
     _last_hub_radius_cm{NAN, NAN},
     _hub_radius_cm_history{},
     _ref_hub_radius_cm(0.0),
     _num_average(0),
     _average_hub_radius_cm(NAN),
-    _tape_thickness_um(NAN)
+    _tape_thickness_um(NAN),
+    _is_calculated_tape_thickness_um(false)
 {
     queue_init(&_rotation_event_queue, sizeof(rotation_event_t), ROTATION_EVENT_QUEUE_LENGTH);
 
@@ -113,6 +115,34 @@ void crp42602y_counter::reset_counter()
 {
     bool is_dir_a = _ctrl->get_head_dir_is_a();
     _total_playing_sec[!is_dir_a] = 0.0;
+}
+
+
+crp42602y_counter::counter_state_t crp42602y_counter::get_counter_state()
+{
+    return _state;
+}
+
+void crp42602y_counter::_correct_tape_thickness_um()
+{
+    /*
+    // respect calculated value
+    if (_tape_thickness_um < 8.5 || (_tape_thickness_um >= 9.5 && _tape_thickness_um < 10.5)) {
+        _tape_thickness_um = 9.0;  // correct to 9 um (C-120)
+    } else if ((_tape_thickness_um >= 10.5 && _tape_thickness_um < 11.5) || (_tape_thickness_um >= 12.5 && _tape_thickness_um < 15.0)) {
+        _tape_thickness_um = 12.0;  // correct to 12 um (C-90)
+    } else if ((_tape_thickness_um >= 15.0 && _tape_thickness_um < 17.5) || (_tape_thickness_um >= 18.5)) {
+        _tape_thickness_um = 18.0;  // correct to 12 um (C-60, C-46)
+    }
+    */
+    // standardize value
+    if (_tape_thickness_um < 10.5) {
+        _tape_thickness_um = 9.0;  // correct to 9 um (C-120)
+    } else if (_tape_thickness_um < 15.0) {
+        _tape_thickness_um = 12.0;  // correct to 12 um (C-90)
+    } else {
+        _tape_thickness_um = 18.0;  // correct to 12 um (C-60, C-46)
+    }
 }
 
 void crp42602y_counter::_irq_callback()
@@ -202,9 +232,12 @@ void crp42602y_counter::_process()
             float tape_length = TAPE_SPEED_CM_PER_SEC * event.interval_us / 1e6;
             // reflect to total playing sec
             float add_time = event.interval_us / 1e6;
-            if (std::isnan(_total_playing_sec[fs])) _total_playing_sec[fs] = 0.0;
+            if (std::isnan(_total_playing_sec[fs]) || std::isnan(_total_playing_sec[bs])) {
+                _total_playing_sec[fs] = 0.0;
+                _total_playing_sec[bs] = 0.0;
+                _state = PLAY_ONLY;
+            }
             _total_playing_sec[fs] += add_time;
-            if (std::isnan(_total_playing_sec[bs])) _total_playing_sec[bs] = 0.0;
             _total_playing_sec[bs] -= add_time;
             // shift hub_radius history
             for (int i = NUM_HUB_ROTATION_HISTORY - NUM_IGNORE_HUB_ROTATION_HISTORY2 - 1; i > 0; i--) {
@@ -222,23 +255,32 @@ void crp42602y_counter::_process()
             for (int i = NUM_IGNORE_HUB_ROTATION_HISTORY1; i < NUM_HUB_ROTATION_HISTORY - NUM_IGNORE_HUB_ROTATION_HISTORY2; i++) {
                 _average_hub_radius_cm += _hub_radius_cm_history[i];
             }
-            _average_hub_radius_cm /= _num_average - NUM_IGNORE_HUB_ROTATION_HISTORY1 - NUM_IGNORE_HUB_ROTATION_HISTORY2;
             // after average is stable enough
-            if (_num_average >= NUM_HUB_ROTATION_HISTORY) {
+            if (_num_average > NUM_IGNORE_HUB_ROTATION_HISTORY1 + NUM_IGNORE_HUB_ROTATION_HISTORY2) {
+                _average_hub_radius_cm /= _num_average - NUM_IGNORE_HUB_ROTATION_HISTORY1 - NUM_IGNORE_HUB_ROTATION_HISTORY2;
                 _last_hub_radius_cm[fs] = _average_hub_radius_cm;
                 if (_count == 40) {  // this is reference
                     _ref_hub_radius_cm = _average_hub_radius_cm;
-                } else if (_count >= 50 && _count % 10 == 0) {  // calculate diff from reference
+                } else if ((!_is_calculated_tape_thickness_um && _count >= 50 && _count < 100 && _count % 10 == 0) ||
+                           (_count >= 100 && _count % 100 == 0)) {  // calculate diff from reference
                     float diff_hub_radius_cm = _average_hub_radius_cm - _ref_hub_radius_cm;
                     float diff_hub_rotations = 1.0 / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO * (_count - 40);
                     _tape_thickness_um = diff_hub_radius_cm * 1e4 / diff_hub_rotations;
+                    _correct_tape_thickness_um();
+                    _is_calculated_tape_thickness_um = true;
+                    if (_state == PLAY_ONLY) {
+                        _state = FF_READY;
+                    }
                 }
                 // reflect to back side of _last_hub_radius_cm
                 if (!std::isnan(_last_hub_radius_cm[bs])) {
                     _last_hub_radius_cm[bs] -= _tape_thickness_um / 1e4 * tape_length / (2.0 * M_PI * _last_hub_radius_cm[bs]);
+                    if (_state == FF_READY) {
+                        _state = FF_REW_READY;
+                    }
                 }
             }
-            if (_count >= 20 && _count % 10 == 0) {
+            if (_count % 10 == 0) {
                 printf("--------\r\n");
                 printf("interval_us = %d\r\n", (int) event.interval_us);
                 printf("rps = %7.4f\r\n", rotation_per_second);
@@ -258,7 +300,8 @@ void crp42602y_counter::_process()
                 _total_playing_sec[fs] = NAN;
                 _total_playing_sec[bs] = NAN;
                 _count = 0;
-            } else if (!std::isnan(_total_playing_sec[fs])) {
+                _state = UNDETERMINED;
+            } else if (!std::isnan(_total_playing_sec[fs]) && !std::isnan(_total_playing_sec[bs])) {
                 float tape_length = 2.0 * M_PI * _last_hub_radius_cm[fs] * diff_hub_rotations;
                 float add_time = tape_length / TAPE_SPEED_CM_PER_SEC;
                 //printf("%7.4f %7.4f %7.4f %7.4f\r\n", add_time, hub_rotations, _last_hub_radius_cm[fs], diff_hub_rotations);

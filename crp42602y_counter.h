@@ -20,10 +20,18 @@ class crp42602y_ctrl;  // reference to avoid inter lock
 
 class crp42602y_counter {
     public:
+    typedef enum _counter_state_t {
+        UNDETERMINED = 0,
+        PLAY_ONLY,
+        FF_READY,
+        FF_REW_READY
+    } counter_state_t;
+
     crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl);
     virtual ~crp42602y_counter();
     float get_counter();
     void reset_counter();
+    counter_state_t get_counter_state();
 
     private:
     static constexpr float    TAPE_SPEED_CM_PER_SEC = 4.75;
@@ -42,6 +50,7 @@ class crp42602y_counter {
     static crp42602y_counter* _inst_map[4];
 
     crp42602y_ctrl* const _ctrl;
+    counter_state_t _state;
     int _count;
     uint _sm;
     uint32_t _accum_time_us_history[4];
@@ -52,8 +61,10 @@ class crp42602y_counter {
     int   _num_average;
     float _average_hub_radius_cm;
     float _tape_thickness_um;
+    bool _is_calculated_tape_thickness_um;
     queue_t _rotation_event_queue;
 
+    void _correct_tape_thickness_um();
     void _irq_callback();
     void _process();
 

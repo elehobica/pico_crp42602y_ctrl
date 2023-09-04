@@ -618,9 +618,9 @@ int main()
                 // Counter
                 _ssd1306_clear_square(&disp, 6*6, 64-8, 6*7, 8);
                 float counter_sec_f = crp42602y_counter0->get_counter();
-                if (std::isnan(counter_sec_f)) {
+                if (crp42602y_counter0->get_counter_state() == crp42602y_counter::UNDETERMINED) {
                     ssd1306_draw_string(&disp, 6*6, 64-8, 1, "  --:--");
-                } else {
+                } else if (crp42602y_counter0->get_counter_state() != crp42602y_counter::PLAY_ONLY || (now_time / 250) % 4 > 0) {
                     int counter_sec = (int) counter_sec_f;
                     int counter_min = counter_sec / 60;
                     char str[16];
