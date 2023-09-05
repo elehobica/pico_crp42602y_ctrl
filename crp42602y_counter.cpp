@@ -50,7 +50,7 @@ void __isr __time_critical_func(crp42602y_counter_pio_irq_handler)()
 
 crp42602y_counter::crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl) :
     _ctrl(ctrl),
-    _state(UNDETERMINED), _count(0), _sm(0), _accum_time_us_history{},
+    _status(NONE), _count(0), _sm(0), _accum_time_us_history{},
     _total_playing_sec{NAN, NAN},
     _last_hub_radius_cm{NAN, NAN},
     _hub_radius_cm_history{},
@@ -89,7 +89,7 @@ crp42602y_counter::crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctr
         crp42602y_measure_pulse_program_get_default_config,
         pin_rotation_sens
     );
-    pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) (uint32_t) -TIMEOUT_COUNT);
+    pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) -TIMEOUT_COUNT);
 }
 
 crp42602y_counter::~crp42602y_counter()
@@ -97,30 +97,52 @@ crp42602y_counter::~crp42602y_counter()
     queue_free(&_rotation_event_queue);
     _inst_map[_sm] = nullptr;
     pio_sm_unclaim(CRP42602Y_PIO, _sm);
-    /*
-    // need confirm if other instance still uses the handler
-    if (irq_has_shared_handler(PIO_IRQ_x)) {
-        irq_remove_handler(PIO_PIO_x, crp42602y_counter_pio_irq_handler);
+
+    // Remove handler if there are no instances
+    bool exist_inst = false;
+    for (int i = 0; i < 4; i++) {
+        if (_inst_map[_sm] != nullptr) {
+            exist_inst = true;
+            break;
+        }
     }
-    */
+    if (!exist_inst) {
+        if (irq_has_shared_handler(PIO_IRQ_x)) {
+            irq_remove_handler(PIO_IRQ_x, crp42602y_counter_pio_irq_handler);
+        }
+    }
 }
 
 float crp42602y_counter::get_counter()
 {
     bool is_dir_a = _ctrl->get_head_dir_is_a();
-    return _total_playing_sec[!is_dir_a];
+    if ((_status & TIME) == TIME) {
+        return _total_playing_sec[!is_dir_a];
+    } else {
+        return NAN;
+    }
 }
 
 void crp42602y_counter::reset_counter()
 {
     bool is_dir_a = _ctrl->get_head_dir_is_a();
-    _total_playing_sec[!is_dir_a] = 0.0;
+    if ((_status & TIME) == TIME) {
+        _total_playing_sec[!is_dir_a] = 0.0;
+    }
 }
 
 
-crp42602y_counter::counter_state_t crp42602y_counter::get_counter_state()
+uint32_t crp42602y_counter::get_counter_state()
 {
-    return _state;
+    if (_status == ALL) {
+        return FULL_READY;
+    } else if ((_status & THICKNESS) != 0UL && (_status & (RADIUS_A | RADIUS_B)) != (RADIUS_A | RADIUS_B)) {
+        return EITHER_CUE_READY;
+    } else if ((_status & TIME) == TIME) {
+        return PLAY_ONLY;
+    } else {
+        return UNDETERMINED;
+    }
 }
 
 void crp42602y_counter::_correct_tape_thickness_um()
@@ -159,7 +181,7 @@ void crp42602y_counter::_irq_callback()
         accum_time_us += -((int32_t) val) * PIO_COUNT_DIV;  // val is always negative value
     }
     if (accum_time_us == 0) {
-        pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) (uint32_t) -TIMEOUT_COUNT);
+        pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) -TIMEOUT_COUNT);
         _ctrl->on_rotation_stop();
     } else {
         bool stable = true;
@@ -174,7 +196,7 @@ void crp42602y_counter::_irq_callback()
             // for early stop detection
             pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) ((int32_t) -(accum_time_us / PIO_COUNT_DIV)));
         } else {
-            pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) (uint32_t) -TIMEOUT_COUNT);
+            pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) -TIMEOUT_COUNT);
         }
         bool is_playing = _ctrl->is_playing();
         bool is_cueing = _ctrl->is_cueing();
@@ -234,10 +256,10 @@ void crp42602y_counter::_process()
             float tape_length = TAPE_SPEED_CM_PER_SEC * event.interval_us / 1e6;
             // reflect to total playing sec
             float add_time = event.interval_us / 1e6;
-            if (std::isnan(_total_playing_sec[fs]) || std::isnan(_total_playing_sec[bs])) {
+            if (_status == NONE) {
                 _total_playing_sec[fs] = 0.0;
                 _total_playing_sec[bs] = 0.0;
-                _state = PLAY_ONLY;
+                _status |= TIME;
             }
             _total_playing_sec[fs] += add_time;
             _total_playing_sec[bs] -= add_time;
@@ -261,6 +283,7 @@ void crp42602y_counter::_process()
             if (_num_average > NUM_IGNORE_HUB_ROTATION_HISTORY1 + NUM_IGNORE_HUB_ROTATION_HISTORY2) {
                 _average_hub_radius_cm /= _num_average - NUM_IGNORE_HUB_ROTATION_HISTORY1 - NUM_IGNORE_HUB_ROTATION_HISTORY2;
                 _last_hub_radius_cm[fs] = _average_hub_radius_cm;
+                _status |= RADIUS_A << fs;
                 if (_count == 40) {  // this is reference
                     _ref_hub_radius_cm = _average_hub_radius_cm;
                 } else if ((!_is_calculated_tape_thickness_um && _count >= 50 && _count < 100 && _count % 10 == 0) ||
@@ -270,16 +293,11 @@ void crp42602y_counter::_process()
                     _tape_thickness_um = diff_hub_radius_cm * 1e4 / diff_hub_rotations;
                     _correct_tape_thickness_um();
                     _is_calculated_tape_thickness_um = true;
-                    if (_state == PLAY_ONLY) {
-                        _state = FF_READY;
-                    }
+                    _status |= THICKNESS;
                 }
                 // reflect to back side of _last_hub_radius_cm
-                if (!std::isnan(_last_hub_radius_cm[bs])) {
+                if (_status & (RADIUS_A << bs) != 0UL) {
                     _last_hub_radius_cm[bs] -= _tape_thickness_um / 1e4 * tape_length / (2.0 * M_PI * _last_hub_radius_cm[bs]);
-                    if (_state == FF_READY) {
-                        _state = FF_REW_READY;
-                    }
                 }
             }
             if (_count % 10 == 0) {
@@ -292,25 +310,26 @@ void crp42602y_counter::_process()
                 printf("tape thicknesss (um)= %7.4f\r\n", _tape_thickness_um);
                 printf("time A = %7.4f\r\n", _total_playing_sec[0]);
                 printf("time B = %7.4f\r\n", _total_playing_sec[1]);
+                printf("_status = %05b\r\n", _status);
             }
             _count++;
         } else if (event.type == CUE) {
             // rotation calculation
             float hub_rotations = (float) _count / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO;
             float diff_hub_rotations = 1.0 / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO;
-            if (std::isnan(_tape_thickness_um) || std::isnan(_last_hub_radius_cm[fs])) {
+            if ((_status & THICKNESS) == 0UL || (_status & (RADIUS_A << fs)) == 0UL) {
                 _total_playing_sec[fs] = NAN;
                 _total_playing_sec[bs] = NAN;
                 _count = 0;
-                _state = UNDETERMINED;
-            } else if (!std::isnan(_total_playing_sec[fs]) && !std::isnan(_total_playing_sec[bs])) {
+                _status = UNDETERMINED;
+            } else if ((_status & TIME) != 0UL) {
                 float tape_length = 2.0 * M_PI * _last_hub_radius_cm[fs] * diff_hub_rotations;
                 float add_time = tape_length / TAPE_SPEED_CM_PER_SEC;
                 //printf("%7.4f %7.4f %7.4f %7.4f\r\n", add_time, hub_rotations, _last_hub_radius_cm[fs], diff_hub_rotations);
                 _total_playing_sec[fs] += add_time;
                 _total_playing_sec[bs] -= add_time;
                 _last_hub_radius_cm[fs] += _tape_thickness_um / 1e4 * diff_hub_rotations;
-                if (!std::isnan(_last_hub_radius_cm[bs])) {
+                if ((_status & (RADIUS_A << bs)) != 0UL) {
                     _last_hub_radius_cm[bs] -= _tape_thickness_um / 1e4 * tape_length / (2.0 * M_PI * _last_hub_radius_cm[bs]);
                 }
                 if (_count % 10 == 0) {
@@ -320,6 +339,7 @@ void crp42602y_counter::_process()
                     printf("tape thicknesss (um)= %7.4f\r\n", _tape_thickness_um);
                     printf("time A = %7.4f\r\n", _total_playing_sec[0]);
                     printf("time B = %7.4f\r\n", _total_playing_sec[1]);
+                    printf("_status = %05b\r\n", _status);
                 }
                 _count++;
             }

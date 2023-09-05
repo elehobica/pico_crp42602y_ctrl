@@ -18,22 +18,41 @@
 
 class crp42602y_ctrl;  // reference to avoid inter lock
 
+// Assumption:
+// Play:   Rotation sensor is attached to the hub rolling up.
+//         Hub rotation speeed depends on the tape speed (4.75 cm/sec)
+//         Threrefore, the hub radius and tape thickness can be calculated from the rotation speed,
+//         Ascending time is equal to the time passing.
+// FF/REW: Rotation sensor is attached to the hub rolling up.
+//         Hub rotation speeed is constant.
+//         Threrefore, if both the hub radius of rolling up side and tape thickness are known,
+//         processing time can be calculated.
+
 class crp42602y_counter {
     public:
     typedef enum _counter_state_t {
         UNDETERMINED = 0,
         PLAY_ONLY,
-        FF_READY,
-        FF_REW_READY
+        EITHER_CUE_READY,
+        FULL_READY
     } counter_state_t;
 
     crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl);
     virtual ~crp42602y_counter();
     float get_counter();
     void reset_counter();
-    counter_state_t get_counter_state();
+    uint32_t get_counter_state();
 
     private:
+    typedef enum _counter_status_bit_t {
+        NONE      = 0,
+        TIME      = (1 << 0),
+        RADIUS_A  = (1 << 1),
+        RADIUS_B  = (1 << 2),
+        THICKNESS = (1 << 3),
+        ALL       = TIME | RADIUS_A | RADIUS_B | THICKNESS
+    } counter_status_bit_t;
+
     static constexpr float    TAPE_SPEED_CM_PER_SEC = 4.75;
     static constexpr uint32_t NUM_ROTATION_WINGS = 2;
     static constexpr float    ROTATION_GEAR_RATIO = 43.0 / 23.0;
@@ -50,7 +69,7 @@ class crp42602y_counter {
     static crp42602y_counter* _inst_map[4];
 
     crp42602y_ctrl* const _ctrl;
-    counter_state_t _state;
+    uint32_t _status;
     int _count;
     uint _sm;
     uint32_t _accum_time_us_history[4];

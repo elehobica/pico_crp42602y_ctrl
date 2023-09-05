@@ -23,11 +23,11 @@ term1_end:
     mov x, !null      [0]  ; set 0xFFFFFFFF to x
                            ; (4 cycles from 1->0 edge to here)
 term0:                     ; to count 0-term by 1/4 clock
-    jmp pin term0_end [1]
+    jmp pin term0_end [0]
     jmp x!=y term0_1  [0]  ; check timeout
     jmp timeout       [0]
 term0_1:
-    jmp x-- term0     [0]  ; count div by 4 cycles
+    jmp x-- term0     [1]  ; count div by 4 cycles
     jmp timeout       [0]
 term0_end:
     in x, 32          [0]  ; send term0 counts
