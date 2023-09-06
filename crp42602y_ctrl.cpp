@@ -55,6 +55,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _cur_head_dir_is_a(false),
     _cur_lift_head(false),
     _cur_reel_fwd(false),
+    _gear_changing(false),
     _gear_last_time(0),
     _power_enable(true),
     _signal_filter{}
@@ -339,6 +340,11 @@ void crp42602y_ctrl::_pull_solenoid(const bool flag) const
     gpio_put(_pin_solenoid_ctrl, flag);
 }
 
+bool crp42602y_ctrl::_gear_is_changing() const
+{
+    return _gear_changing;
+}
+
 bool crp42602y_ctrl::_gear_is_in_func() const
 {
     return !gpio_get(_pin_gear_status_sw) && _power_enable;
@@ -453,9 +459,14 @@ bool crp42602y_ctrl::_get_dir_is_a(direction_t dir) const
 bool crp42602y_ctrl::_stop(direction_t dir)
 {
     if (_gear_is_in_func()) {
-        if (!_gear_return_sequence()) return false;
+        _gear_changing = true;
+        if (!_gear_return_sequence()) {
+            _gear_changing = false;
+            return false;
+        }
     }
     if (dir == DIR_REVERSE) _head_dir_is_a = !_head_dir_is_a;
+    _gear_changing = false;
     return true;
 }
 
@@ -464,10 +475,20 @@ bool crp42602y_ctrl::_play(direction_t dir)
     _head_dir_is_a = _get_dir_is_a(dir);
     if (_gear_is_in_func()) {
         if (_gear_is_equal_status(_head_dir_is_a, true, _head_dir_is_a)) return false;
-        if (!_gear_return_sequence()) return false;
+        _gear_changing = true;
+        if (!_gear_return_sequence()) {
+            _gear_changing = false;
+            return false;
+        }
     }
-    if (!_has_cassette) return false;
-    return _gear_func_sequence(_head_dir_is_a, true, _head_dir_is_a);
+    if (!_has_cassette) {
+        _gear_changing = false;
+        return false;
+    }
+    _gear_changing = true;
+    bool flag = _gear_func_sequence(_head_dir_is_a, true, _head_dir_is_a);
+    _gear_changing = false;
+    return flag;
 }
 
 bool crp42602y_ctrl::_cue(direction_t dir)
@@ -475,9 +496,19 @@ bool crp42602y_ctrl::_cue(direction_t dir)
     _cue_dir_is_a = _get_dir_is_a(dir);
     if (_gear_is_in_func()) {
         if (_gear_is_equal_status(_head_dir_is_a, false, _cue_dir_is_a)) return false;
-        if (!_gear_return_sequence()) return false;
+        _gear_changing = true;
+        if (!_gear_return_sequence()) {
+            _gear_changing = false;
+            return false;
+        }
     }
-    if (!_has_cassette) return false;
+    if (!_has_cassette) {
+        _gear_changing = false;
+        return false;
+    }
+    _gear_changing = true;
     // Evacuate head, however note that the head direction still matters for which side the head is tracing,
-    return _gear_func_sequence(_head_dir_is_a, false, _cue_dir_is_a);
+    bool flag = _gear_func_sequence(_head_dir_is_a, false, _cue_dir_is_a);
+    _gear_changing = false;
+    return flag;
 }

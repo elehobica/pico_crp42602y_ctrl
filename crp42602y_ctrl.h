@@ -129,6 +129,7 @@ class crp42602y_ctrl {
     bool _cur_head_dir_is_a;
     bool _cur_lift_head;
     bool _cur_reel_fwd;
+    bool _gear_changing;
     uint32_t _gear_last_time;
     bool _power_enable;
     uint32_t _signal_filter[__NUM_FILTER_SIGNALS__];
@@ -145,6 +146,7 @@ class crp42602y_ctrl {
     void _set_power_enable(const bool flag);
     bool _get_power_enable() const;
     void _pull_solenoid(const bool flag) const;
+    bool _gear_is_changing() const;
     bool _gear_is_in_func() const;
     void _gear_store_status(const bool head_dir_is_a, const bool lift_head, const bool reel_fwd);
     bool _gear_is_equal_status(const bool head_dir_is_a, const bool lift_head, const bool reel_fwd) const;
