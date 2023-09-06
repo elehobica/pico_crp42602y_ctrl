@@ -45,12 +45,12 @@ class crp42602y_counter {
 
     private:
     typedef enum _counter_status_bit_t {
-        NONE      = 0,
-        TIME      = (1 << 0),
-        RADIUS_A  = (1 << 1),
-        RADIUS_B  = (1 << 2),
-        THICKNESS = (1 << 3),
-        ALL       = TIME | RADIUS_A | RADIUS_B | THICKNESS
+        NONE_BITS     = 0,
+        TIME_BIT      = (1 << 0),
+        RADIUS_A_BIT  = (1 << 1),
+        RADIUS_B_BIT  = (1 << 2),
+        THICKNESS_BIT = (1 << 3),
+        ALL_BITS      = TIME_BIT | RADIUS_A_BIT | RADIUS_B_BIT | THICKNESS_BIT
     } counter_status_bit_t;
 
     static constexpr float    TAPE_SPEED_CM_PER_SEC = 4.75;
@@ -80,9 +80,9 @@ class crp42602y_counter {
     int   _num_average;
     float _average_hub_radius_cm;
     float _tape_thickness_um;
-    bool _is_calculated_tape_thickness_um;
     queue_t _rotation_event_queue;
 
+    bool _check_status(uint32_t bits);
     void _correct_tape_thickness_um();
     void _irq_callback();
     void _process();
