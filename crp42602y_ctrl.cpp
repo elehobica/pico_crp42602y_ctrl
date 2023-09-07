@@ -233,8 +233,10 @@ void crp42602y_ctrl::process_loop()
 
     // Cassette set/eject detection
     if (!_prev_has_cassette && _has_cassette) {
+        _crp42602y_counter.restart();
         _dispatch_callback(ON_CASSETTE_SET);
     } else if (_prev_has_cassette && !_has_cassette) {
+        _crp42602y_counter.restart();
         _dispatch_callback(ON_CASSETTE_EJECT);
         if (_gear_is_in_func()) {
             send_command(STOP_COMMAND);

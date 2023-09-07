@@ -39,6 +39,7 @@ class crp42602y_counter {
 
     crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl);
     virtual ~crp42602y_counter();
+    void restart();
     float get_counter();
     void reset_counter();
     uint32_t get_counter_state();
@@ -67,10 +68,10 @@ class crp42602y_counter {
     static crp42602y_counter* _inst_map[4];
 
     crp42602y_ctrl* const _ctrl;
+    uint _sm;
     uint32_t _status;
     int _rot_count;
     int _count;
-    uint _sm;
     float _total_playing_sec[2];
     float _last_hub_radius_cm[2];
     float _hub_radius_cm_history[MAX_NUM_TO_AVERAGE];

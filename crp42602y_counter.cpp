@@ -49,8 +49,8 @@ void __isr __time_critical_func(crp42602y_counter_pio_irq_handler)()
 }
 
 crp42602y_counter::crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl) :
-    _ctrl(ctrl),
-    _status(NONE_BITS), _rot_count(0), _count(0), _sm(0),
+    _ctrl(ctrl), _sm(0),
+    _status(NONE_BITS), _rot_count(0), _count(0),
     _total_playing_sec{NAN, NAN},
     _last_hub_radius_cm{NAN, NAN},
     _hub_radius_cm_history{},
@@ -108,6 +108,22 @@ crp42602y_counter::~crp42602y_counter()
             irq_remove_handler(PIO_IRQ_x, crp42602y_counter_pio_irq_handler);
         }
     }
+}
+
+void crp42602y_counter::restart()
+{
+    _status = NONE_BITS;
+    _rot_count = 0;
+    _count = 0;
+    for (int i = 0; i < 2; i++) {
+        _total_playing_sec[i] = NAN;
+        _last_hub_radius_cm[i] = NAN;
+    }
+    for (int i = 0; i < MAX_NUM_TO_AVERAGE; i++) {
+        _hub_radius_cm_history[i] = 0;
+    }
+    _ref_hub_radius_cm = 0.0;
+    _tape_thickness_um = NAN;
 }
 
 float crp42602y_counter::get_counter()
