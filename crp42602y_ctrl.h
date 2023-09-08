@@ -60,6 +60,7 @@ class crp42602y_ctrl {
     typedef enum _callback_type_t {
         ON_GEAR_ERROR = 0,
         ON_COMMAND_FIFO_OVERFLOW,
+        ON_COUNTER_FIFO_OVERFLOW,
         ON_CASSETTE_SET,
         ON_CASSETTE_EJECT,
         ON_STOP,
