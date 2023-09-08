@@ -61,7 +61,7 @@ class crp42602y_counter {
     } counter_status_bit_t;
 
     static constexpr float    TAPE_SPEED_CM_PER_SEC = 4.75;
-    static constexpr float    DEFAULT_ESTIMATED_TAPE_THICKNESS_US = 18.0;
+    static constexpr float    DEFAULT_ESTIMATED_TAPE_THICKNESS_UM = 18.0;
     static constexpr uint32_t NUM_ROTATION_WINGS = 2;
     static constexpr float    ROTATION_GEAR_RATIO = 43.0 / 23.0;
     static constexpr uint32_t TIMEOUT_MILLI_SEC = 1000;
@@ -89,7 +89,7 @@ class crp42602y_counter {
     queue_t _rotation_event_queue;
 
     bool _check_status(uint32_t bits);
-    void _correct_tape_thickness_um();
+    float _correct_tape_thickness_um(float tape_thickness_um);
     void _irq_callback();
     void _process();
 
