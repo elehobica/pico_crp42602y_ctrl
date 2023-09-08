@@ -52,10 +52,12 @@ crp42602y_counter::crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctr
     _ctrl(ctrl), _sm(0),
     _status(NONE_BITS), _rot_count(0), _count(0),
     _total_playing_sec{NAN, NAN},
+    _estimated_playing_sec{NAN, NAN},
     _last_hub_radius_cm{NAN, NAN},
+    _estimated_hub_radius_cm{0.0, 0.0},
     _hub_radius_cm_history{},
     _ref_hub_radius_cm(0.0),
-    _tape_thickness_um(NAN)
+    _tape_thickness_um(DEFAULT_ESTIMATED_TAPE_THICKNESS_US)
 {
     queue_init(&_rotation_event_queue, sizeof(rotation_event_t), ROTATION_EVENT_QUEUE_LENGTH);
 
@@ -117,13 +119,15 @@ void crp42602y_counter::restart()
     _count = 0;
     for (int i = 0; i < 2; i++) {
         _total_playing_sec[i] = NAN;
+        _estimated_playing_sec[i] = NAN;
         _last_hub_radius_cm[i] = NAN;
+        _estimated_hub_radius_cm[i] = 0.0;
     }
     for (int i = 0; i < MAX_NUM_TO_AVERAGE; i++) {
         _hub_radius_cm_history[i] = 0;
     }
     _ref_hub_radius_cm = 0.0;
-    _tape_thickness_um = NAN;
+    _tape_thickness_um = DEFAULT_ESTIMATED_TAPE_THICKNESS_US;
 }
 
 float crp42602y_counter::get_counter()
@@ -202,51 +206,52 @@ void crp42602y_counter::_irq_callback()
     bool gear_is_changing = _ctrl->_gear_is_changing();
     bool head_dir_is_a = _ctrl->get_head_dir_is_a();
     bool cue_dir_is_a = _ctrl->get_cue_dir_is_a();
-    if ((!is_playing && !is_cueing) || gear_is_changing) {  // Ignore dummy rotations
+    // Discard dummy rotations
+    if ((!is_playing && !is_cueing) || gear_is_changing) {
         pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) -TIMEOUT_COUNT);
         _rot_count = 0;
         return;
-    } else if (accum_time_us == 0) {  // Timeout, thus rotation stopped
+    }
+    // Timeout, thus rotation stopped
+    if (accum_time_us == 0) {
         pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) -TIMEOUT_COUNT);
         _rot_count = 0;
         _ctrl->on_rotation_stop();
+        return;
+    }
+    //printf("%d\r\n", accum_time_us);
+    // After dummy rotations:
+    //   1st time: wrong interval
+    //   2nd time: sometimes inaccurate interval
+    if (_rot_count > 1) {  // wait 2 times for early stop detection because of lack of accuracy
+        pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) ((int32_t) -(accum_time_us / PIO_COUNT_DIV)));
     } else {
-        //printf("%d\r\n", accum_time_us);
-        // after dummy rotations:
-        //   1st time: wrong interval
-        //   2nd time: sometimes inaccurate interval
-        if (_rot_count > 1) {  // wait 2 times for early stop detection because of lack of accuracy
-            pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) ((int32_t) -(accum_time_us / PIO_COUNT_DIV)));
-        } else {
-            pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) -TIMEOUT_COUNT);
-        }
-        if (_rot_count > 0) {  // ignore 1 time to avoid wrong interval inforamtion
-            if (is_playing) {
-                rotation_event_t event = {
-                    accum_time_us + ADDITIONAL_US,
-                    PLAY,
-                    head_dir_is_a,
-                    _rot_count
-                };
-                if (!queue_try_add(&_rotation_event_queue, &event)) {
-                    // warning
-                }
-            } else if (is_cueing) {
-                rotation_event_t event = {
-                    accum_time_us + ADDITIONAL_US,
-                    CUE,
-                    cue_dir_is_a,
-                    _rot_count
-                };
-                if (!queue_try_add(&_rotation_event_queue, &event)) {
-                    // warning
-                }
+        pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) -TIMEOUT_COUNT);
+    }
+    if (_rot_count > 0) {  // ignore 1 time to avoid wrong interval inforamtion
+        if (is_playing) {
+            rotation_event_t event = {
+                accum_time_us + ADDITIONAL_US,
+                PLAY,
+                head_dir_is_a,
+                _rot_count
+            };
+            if (!queue_try_add(&_rotation_event_queue, &event)) {
+                _ctrl->_dispatch_callback(crp42602y_ctrl::ON_COUNTER_FIFO_OVERFLOW);
+            }
+        } else if (is_cueing) {
+            rotation_event_t event = {
+                accum_time_us + ADDITIONAL_US,
+                CUE,
+                cue_dir_is_a,
+                _rot_count
+            };
+            if (!queue_try_add(&_rotation_event_queue, &event)) {
+                _ctrl->_dispatch_callback(crp42602y_ctrl::ON_COUNTER_FIFO_OVERFLOW);
             }
         }
-        if (_rot_count < MAX_NUM_TO_AVERAGE) {
-            _rot_count++;
-        }
     }
+    if (_rot_count < MAX_NUM_TO_AVERAGE) _rot_count++;
 }
 
 void crp42602y_counter::_process()
@@ -254,6 +259,10 @@ void crp42602y_counter::_process()
     while (queue_get_level(&_rotation_event_queue) > 0) {
         rotation_event_t event;
         queue_remove_blocking(&_rotation_event_queue, &event);
+        // reset count if function (play/cue) has changed
+        if (event.num_to_average == 1) {
+            _count = 0;
+        }
         int fs = (int) !event.is_dir_a; // front side
         int bs = 1 - fs; // back side
         if (event.type == PLAY) {
@@ -267,6 +276,8 @@ void crp42602y_counter::_process()
             if (_status == NONE_BITS) {
                 _total_playing_sec[fs] = 0.0;
                 _total_playing_sec[bs] = 0.0;
+                _estimated_playing_sec[fs] = 0.0;
+                _estimated_playing_sec[bs] = 0.0;
                 _status |= TIME_BIT;
             }
             _total_playing_sec[fs] += add_time;
@@ -292,14 +303,24 @@ void crp42602y_counter::_process()
                 float diff_hub_rotations = 1.0 / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO * (_count - 40);
                 _tape_thickness_um = diff_hub_radius_cm * 1e4 / diff_hub_rotations;
                 _correct_tape_thickness_um();
-                _status |= THICKNESS_BIT;
+                if (!_check_status(THICKNESS_BIT)) {
+                    float compensation_ratio= 1.0 - _tape_thickness_um / DEFAULT_ESTIMATED_TAPE_THICKNESS_US;
+                    _total_playing_sec[fs] -= _estimated_playing_sec[fs] * compensation_ratio;
+                    _total_playing_sec[bs] -= _estimated_playing_sec[bs] * compensation_ratio;
+                    _last_hub_radius_cm[fs] -= _estimated_hub_radius_cm[fs] * compensation_ratio;
+                    _last_hub_radius_cm[bs] -= _estimated_hub_radius_cm[bs] * compensation_ratio;
+                    _estimated_playing_sec[fs] = 0.0;
+                    _estimated_playing_sec[bs] = 0.0;
+                    _estimated_hub_radius_cm[fs] = 0.0;
+                    _estimated_hub_radius_cm[bs] = 0.0;
+                    _status |= THICKNESS_BIT;
+                }
             }
             // reflect to back side of _last_hub_radius_cm
             if (_check_status(RADIUS_A_BIT << bs)) {
-                if (_check_status(THICKNESS_BIT)) {
-                    _last_hub_radius_cm[bs] -= _tape_thickness_um / 1e4 * tape_length / (2.0 * M_PI * _last_hub_radius_cm[bs]);
-                } else {
-                    // Keep hub radius. this makes some error about radius, however it will be better than losing current value completely
+                _last_hub_radius_cm[bs] -= _tape_thickness_um / 1e4 * tape_length / (2.0 * M_PI * _last_hub_radius_cm[bs]);
+                if (!_check_status(THICKNESS_BIT)) {
+                    _estimated_hub_radius_cm[bs] -= _tape_thickness_um / 1e4 * tape_length / (2.0 * M_PI * _last_hub_radius_cm[bs]);
                 }
             }
             if (_count % 10 == 0) {
@@ -313,15 +334,18 @@ void crp42602y_counter::_process()
                 printf("time A = %7.4f\r\n", _total_playing_sec[0]);
                 printf("time B = %7.4f\r\n", _total_playing_sec[1]);
                 printf("_status = %04b\r\n", _status);
+                printf("_count = %d\r\n", _count);
             }
             _count++;
         } else if (event.type == CUE) {
             // rotation calculation
             float hub_rotations = (float) _count / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO;
             float diff_hub_rotations = 1.0 / NUM_ROTATION_WINGS / ROTATION_GEAR_RATIO;
-            if (!_check_status(THICKNESS_BIT) || !_check_status(RADIUS_A_BIT << fs)) {
+            if (!_check_status(RADIUS_A_BIT << fs)) {
                 _total_playing_sec[fs] = NAN;
                 _total_playing_sec[bs] = NAN;
+                _estimated_playing_sec[fs] = NAN;
+                _estimated_playing_sec[bs] = NAN;
                 _count = 0;
                 _status = NONE_BITS;
             } else if (_check_status(TIME_BIT)) {
@@ -331,8 +355,17 @@ void crp42602y_counter::_process()
                 _total_playing_sec[fs] += add_time;
                 _total_playing_sec[bs] -= add_time;
                 _last_hub_radius_cm[fs] += _tape_thickness_um / 1e4 * diff_hub_rotations;
+                _estimated_hub_radius_cm[fs] = 0;
                 if (_check_status(RADIUS_A_BIT << bs)) {
                     _last_hub_radius_cm[bs] -= _tape_thickness_um / 1e4 * tape_length / (2.0 * M_PI * _last_hub_radius_cm[bs]);
+                }
+                if (!_check_status(THICKNESS_BIT)) {
+                    _estimated_playing_sec[fs] += add_time;
+                    _estimated_playing_sec[bs] -= add_time;
+                    _estimated_hub_radius_cm[fs] += _tape_thickness_um / 1e4 * diff_hub_rotations;
+                    if (_check_status(RADIUS_A_BIT << bs)) {
+                        _estimated_hub_radius_cm[bs] -= _tape_thickness_um / 1e4 * tape_length / (2.0 * M_PI * _last_hub_radius_cm[bs]);
+                    }
                 }
                 if (_count % 10 == 0) {
                     printf("--------\r\n");
@@ -342,6 +375,7 @@ void crp42602y_counter::_process()
                     printf("time A = %7.4f\r\n", _total_playing_sec[0]);
                     printf("time B = %7.4f\r\n", _total_playing_sec[1]);
                     printf("_status = %04b\r\n", _status);
+                    printf("_count = %d\r\n", _count);
                 }
                 _count++;
             }

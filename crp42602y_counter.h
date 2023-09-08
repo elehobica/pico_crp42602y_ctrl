@@ -35,6 +35,12 @@ class crp42602y_counter {
         PLAY_ONLY,
         EITHER_CUE_READY,
         FULL_READY
+        /*
+        UNDETERMINED = 0,
+        ESTIMATED,
+        SINGLE_SIDE_CALCULATED
+        BOTH_SIDE_CALCULATED
+        */
     } counter_state_t;
 
     crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl);
@@ -55,6 +61,7 @@ class crp42602y_counter {
     } counter_status_bit_t;
 
     static constexpr float    TAPE_SPEED_CM_PER_SEC = 4.75;
+    static constexpr float    DEFAULT_ESTIMATED_TAPE_THICKNESS_US = 18.0;
     static constexpr uint32_t NUM_ROTATION_WINGS = 2;
     static constexpr float    ROTATION_GEAR_RATIO = 43.0 / 23.0;
     static constexpr uint32_t TIMEOUT_MILLI_SEC = 1000;
@@ -73,7 +80,9 @@ class crp42602y_counter {
     int _rot_count;
     int _count;
     float _total_playing_sec[2];
+    float _estimated_playing_sec[2];
     float _last_hub_radius_cm[2];
+    float _estimated_hub_radius_cm[2];
     float _hub_radius_cm_history[MAX_NUM_TO_AVERAGE];
     float _ref_hub_radius_cm;
     float _tape_thickness_um;
