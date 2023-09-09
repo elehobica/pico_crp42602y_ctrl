@@ -88,7 +88,7 @@ class crp42602y_counter {
     float _tape_thickness_um;
     queue_t _rotation_event_queue;
 
-    bool _check_status(uint32_t bits);
+    bool _check_status(uint32_t bits) const;
     float _correct_tape_thickness_um(float tape_thickness_um);
     void _irq_callback();
     void _process();

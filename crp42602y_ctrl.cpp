@@ -6,7 +6,7 @@
 
 #include "crp42602y_ctrl.h"
 
-//#include <cstdio>
+#include <cstdio>
 
 static inline uint32_t _millis()
 {
@@ -33,7 +33,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     const uint pin_rec_a_sw,
     const uint pin_rec_b_sw
 ) :
-    _crp42602y_counter(pin_rotation_sens, this),
+    _counter(pin_rotation_sens, this),
     _pin_cassette_detect(pin_cassette_detect),
     _pin_gear_status_sw(pin_gear_status_sw),
     _pin_solenoid_ctrl(pin_solenoid_ctrl),
@@ -49,6 +49,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _reverse_mode(RVS_ONE_ROUND),
     _playing(false),
     _cueing(false),
+    _playing_for_wait(false),
     _prev_filter_time(0),
     _prev_func_time(0),
     _has_cur_gear_status(false),
@@ -99,7 +100,7 @@ crp42602y_ctrl::~crp42602y_ctrl()
 
 crp42602y_counter* crp42602y_ctrl::get_counter_inst()
 {
-    return &_crp42602y_counter;
+    return &_counter;
 }
 
 bool crp42602y_ctrl::is_playing() const
@@ -155,6 +156,13 @@ bool crp42602y_ctrl::send_command(const command_t& command)
     // Cancel same repeated command except for DIR_REVERSE
     if (_command_history_registered[0].type == command.type && _command_history_registered[0].dir == command.dir && command.dir != DIR_REVERSE)
         return false;
+
+    if (command.type == CMD_TYPE_STOP) {
+        while (!queue_is_empty(&_command_queue)) {
+            command_t remove_command;
+            queue_remove_blocking(&_command_queue, &remove_command);
+        }
+    }
 
     if (queue_try_add(&_command_queue, &command)) {
         for (int i = NUM_COMMAND_HISTORY_REGISTERED - 1; i >= 1; i--) {
@@ -233,10 +241,10 @@ void crp42602y_ctrl::process_loop()
 
     // Cassette set/eject detection
     if (!_prev_has_cassette && _has_cassette) {
-        _crp42602y_counter.restart();
+        _counter.restart();
         _dispatch_callback(ON_CASSETTE_SET);
     } else if (_prev_has_cassette && !_has_cassette) {
-        _crp42602y_counter.restart();
+        _counter.restart();
         _dispatch_callback(ON_CASSETTE_EJECT);
         if (_gear_is_in_func()) {
             send_command(STOP_COMMAND);
@@ -254,35 +262,65 @@ void crp42602y_ctrl::process_loop()
     }
 
     // Process command
-    while (queue_get_level(&_command_queue) > 0) {
+    //while (queue_get_level(&_command_queue) > 0) {
+    if (queue_get_level(&_command_queue) > 0) {
         command_t command;
-        queue_remove_blocking(&_command_queue, &command);
+        queue_peek_blocking(&_command_queue, &command);
         switch (command.type) {
         case CMD_TYPE_STOP:
             if (_stop(command.dir)) {
                 _playing = false;
                 _cueing = false;
+                _playing_for_wait = false;
                 _dispatch_callback(ON_STOP);
             }
+            queue_remove_blocking(&_command_queue, &command);
             break;
         case CMD_TYPE_PLAY:
             if (_play(command.dir)) {
                 _playing = true;
                 _cueing = false;
+                _playing_for_wait = false;
                 if (command.dir == DIR_REVERSE) {
                     _dispatch_callback(ON_REVERSE);
                 } else {
                     _dispatch_callback(ON_PLAY);
                 }
             }
+            queue_remove_blocking(&_command_queue, &command);
             break;
-        case CMD_TYPE_CUE:
-            if (_cue(command.dir)) {
-                _playing = false;
-                _cueing = true;
-                _dispatch_callback(ON_CUE);
+        case CMD_TYPE_CUE: {
+            if (!_is_que_ready_for_counter(command.dir)) {
+                _cue_dir_is_a = _get_dir_is_a(command.dir);
+                if (_play(command.dir)) {
+                    _playing = false;
+                    _cueing = true;
+                    _playing_for_wait = true;
+                    queue_remove_blocking(&_command_queue, &command);
+                    const command_t* wait_command = (command.dir == DIR_FORWARD) ? &WAIT_FF_READY : &WAIT_REW_READY;
+                    if (!queue_try_add(&_command_queue, wait_command)) {
+                        _dispatch_callback(ON_COMMAND_FIFO_OVERFLOW);
+                    }
+                    if (!queue_try_add(&_command_queue, &command)) {
+                        _dispatch_callback(ON_COMMAND_FIFO_OVERFLOW);
+                    }
+                }
+            } else {
+                if (_cue(command.dir)) {
+                    _playing = false;
+                    _cueing = true;
+                    _playing_for_wait = false;
+                    _dispatch_callback(ON_CUE);
+                }
+                queue_remove_blocking(&_command_queue, &command);
             }
             break;
+        }
+        case CMD_TYPE_WAIT: {
+            if (_is_que_ready_for_counter(command.dir)) {
+                queue_remove_blocking(&_command_queue, &command);
+            }
+        }
         default:
             break;
         }
@@ -302,7 +340,7 @@ void crp42602y_ctrl::process_loop()
     }
 
     // Process counter
-    _crp42602y_counter._process();
+    _counter._process();
 }
 
 void crp42602y_ctrl::_filter_signal(const filter_signal_t filter_signal, const bool raw_signal, bool& filtered_signal)
@@ -322,6 +360,11 @@ void crp42602y_ctrl::_filter_signal(const filter_signal_t filter_signal, const b
 bool crp42602y_ctrl::_dispatch_callback(const callback_type_t callback_type)
 {
     return queue_try_add(&_callback_queue, &callback_type);
+}
+
+bool crp42602y_ctrl::_is_playing_for_wait() const
+{
+    return _playing_for_wait;
 }
 
 void crp42602y_ctrl::_set_power_enable(const bool flag)
@@ -456,6 +499,12 @@ bool crp42602y_ctrl::_get_dir_is_a(direction_t dir) const
         break;
     }
     return dir_is_a;
+}
+
+bool crp42602y_ctrl::_is_que_ready_for_counter(direction_t dir) const
+{
+    int fs = (int) !_get_dir_is_a(dir);
+    return _counter._check_status(crp42602y_counter::RADIUS_A_BIT << fs);
 }
 
 bool crp42602y_ctrl::_stop(direction_t dir)

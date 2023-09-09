@@ -18,7 +18,8 @@ class crp42602y_ctrl {
         CMD_TYPE_NONE = 0,
         CMD_TYPE_STOP,
         CMD_TYPE_PLAY,
-        CMD_TYPE_CUE
+        CMD_TYPE_CUE,
+        CMD_TYPE_WAIT,
     } command_type_t;
     typedef enum _direction_t {
         DIR_KEEP = 0,  // relative Forward
@@ -48,6 +49,8 @@ class crp42602y_ctrl {
     // Internal commands
     static constexpr command_t VOID_COMMAND         = {CMD_TYPE_NONE, DIR_KEEP};
     static constexpr command_t STOP_REVERSE_COMMAND = {CMD_TYPE_STOP, DIR_REVERSE};
+    static constexpr command_t WAIT_FF_READY        = {CMD_TYPE_WAIT, DIR_FORWARD};
+    static constexpr command_t WAIT_REW_READY       = {CMD_TYPE_WAIT, DIR_BACKWARD};
 
     public:
     // Definitions
@@ -108,7 +111,7 @@ class crp42602y_ctrl {
     void process_loop();
 
     private:
-    crp42602y_counter _crp42602y_counter;
+    crp42602y_counter _counter;
     const uint _pin_cassette_detect;
     const uint _pin_gear_status_sw;
     const uint _pin_solenoid_ctrl;
@@ -124,6 +127,7 @@ class crp42602y_ctrl {
     reverse_mode_t _reverse_mode;
     bool _playing;
     bool _cueing;
+    bool _playing_for_wait;
     uint32_t _prev_filter_time;
     uint32_t _prev_func_time;
     bool _has_cur_gear_status;
@@ -144,6 +148,7 @@ class crp42602y_ctrl {
     void _gpio_callback(uint gpio, uint32_t events);
     void _filter_signal(const filter_signal_t filter_signal, const bool raw_signal, bool& filtered_signal);
     bool _dispatch_callback(const callback_type_t callback_type);
+    bool _is_playing_for_wait() const;
     void _set_power_enable(const bool flag);
     bool _get_power_enable() const;
     void _pull_solenoid(const bool flag) const;
@@ -154,6 +159,7 @@ class crp42602y_ctrl {
     bool _gear_func_sequence(const bool head_dir_is_a, const bool lift_head, const bool reel_fwd);
     bool _gear_return_sequence();
     bool _get_dir_is_a(const direction_t dir) const;
+    bool _is_que_ready_for_counter(direction_t dir) const;
     bool _stop(const direction_t dir);
     bool _play(const direction_t dir);
     bool _cue(const direction_t dir);
