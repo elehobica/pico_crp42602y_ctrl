@@ -291,16 +291,25 @@ void crp42602y_ctrl::process_loop()
             break;
         case CMD_TYPE_CUE: {
             if (!_is_que_ready_for_counter(command.dir)) {
+                bool head_dir_is_a = _head_dir_is_a;
                 _cue_dir_is_a = _get_dir_is_a(command.dir);
                 if (_play(command.dir)) {
                     _playing = false;
                     _cueing = true;
                     _playing_for_wait = true;
+                    // remove CUE command
                     queue_remove_blocking(&_command_queue, &command);
-                    const command_t* wait_command = (command.dir == DIR_FORWARD) ? &WAIT_FF_READY : &WAIT_REW_READY;
+                    // 1. add WAIT command
+                    const command_t* wait_command = (command.dir == DIR_FORWARD) ? &WAIT_FF_READY_COMMAND : &WAIT_REW_READY_COMMAND;
                     if (!queue_try_add(&_command_queue, wait_command)) {
                         _dispatch_callback(ON_COMMAND_FIFO_OVERFLOW);
                     }
+                    // 2. add HEAD_DIR command
+                    const command_t* head_dir_command = (head_dir_is_a) ? &HEAD_DIR_A_COMMAND : &HEAD_DIR_B_COMMAND;
+                    if (!queue_try_add(&_command_queue, head_dir_command)) {
+                        _dispatch_callback(ON_COMMAND_FIFO_OVERFLOW);
+                    }
+                    // 3. add original CUE command
                     if (!queue_try_add(&_command_queue, &command)) {
                         _dispatch_callback(ON_COMMAND_FIFO_OVERFLOW);
                     }
@@ -316,11 +325,19 @@ void crp42602y_ctrl::process_loop()
             }
             break;
         }
-        case CMD_TYPE_WAIT: {
+        case CMD_TYPE_WAIT:
             if (_is_que_ready_for_counter(command.dir)) {
                 queue_remove_blocking(&_command_queue, &command);
             }
-        }
+            break;
+        case CMD_TYPE_HEAD_DIR:
+            if (command.dir == DIR_FORWARD) {
+                _head_dir_is_a = true;
+            } else if (command.dir == DIR_BACKWARD) {
+                _head_dir_is_a = false;
+            }
+            queue_remove_blocking(&_command_queue, &command);
+            break;
         default:
             break;
         }

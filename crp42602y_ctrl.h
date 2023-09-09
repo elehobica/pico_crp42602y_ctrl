@@ -20,6 +20,7 @@ class crp42602y_ctrl {
         CMD_TYPE_PLAY,
         CMD_TYPE_CUE,
         CMD_TYPE_WAIT,
+        CMD_TYPE_HEAD_DIR
     } command_type_t;
     typedef enum _direction_t {
         DIR_KEEP = 0,  // relative Forward
@@ -40,17 +41,19 @@ class crp42602y_ctrl {
 
     // Constants
     static constexpr uint32_t POWER_OFF_TIMEOUT_SEC = 300;
-    static constexpr uint     COMMAND_QUEUE_LENGTH = 4;
+    static constexpr uint     COMMAND_QUEUE_LENGTH = 6;
     static constexpr uint     CALLBACK_QUEUE_LENGTH = 4;
     static constexpr uint32_t SIGNAL_FILTER_MS = 100;
     static constexpr uint32_t SIGNAL_FILTER_TIMES = 3;
     static constexpr int      NUM_COMMAND_HISTORY_REGISTERED = 1;
     static constexpr int      NUM_COMMAND_HISTORY_ISSUED = 2;
     // Internal commands
-    static constexpr command_t VOID_COMMAND         = {CMD_TYPE_NONE, DIR_KEEP};
-    static constexpr command_t STOP_REVERSE_COMMAND = {CMD_TYPE_STOP, DIR_REVERSE};
-    static constexpr command_t WAIT_FF_READY        = {CMD_TYPE_WAIT, DIR_FORWARD};
-    static constexpr command_t WAIT_REW_READY       = {CMD_TYPE_WAIT, DIR_BACKWARD};
+    static constexpr command_t VOID_COMMAND           = {CMD_TYPE_NONE, DIR_KEEP};
+    static constexpr command_t STOP_REVERSE_COMMAND   = {CMD_TYPE_STOP, DIR_REVERSE};
+    static constexpr command_t WAIT_FF_READY_COMMAND  = {CMD_TYPE_WAIT, DIR_FORWARD};
+    static constexpr command_t WAIT_REW_READY_COMMAND = {CMD_TYPE_WAIT, DIR_BACKWARD};
+    static constexpr command_t HEAD_DIR_A_COMMAND     = {CMD_TYPE_HEAD_DIR, DIR_FORWARD};
+    static constexpr command_t HEAD_DIR_B_COMMAND     = {CMD_TYPE_HEAD_DIR, DIR_BACKWARD};
 
     public:
     // Definitions
