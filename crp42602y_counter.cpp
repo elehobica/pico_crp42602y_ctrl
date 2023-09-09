@@ -30,7 +30,7 @@ typedef struct _rotation_event_t {
     uint32_t interval_us;
     rotation_event_type_t type;
     bool is_dir_a;
-    int num_to_average;
+    int num_to_average;  // 0 ~ MAX_NUM_TO_AVERAGE: 0 means not to use for average
 } rotation_event_t;
 
 // irq handler for PIO
@@ -226,7 +226,7 @@ void crp42602y_counter::_irq_callback()
                 accum_time_us + ADDITIONAL_US,
                 PLAY,
                 head_dir_is_a,
-                _rot_count
+                _rot_count - 1
             };
             if (!queue_try_add(&_rotation_event_queue, &event)) {
                 _ctrl->_dispatch_callback(crp42602y_ctrl::ON_COUNTER_FIFO_OVERFLOW);
@@ -236,14 +236,14 @@ void crp42602y_counter::_irq_callback()
                 accum_time_us + ADDITIONAL_US,
                 CUE,
                 cue_dir_is_a,
-                _rot_count
+                _rot_count - 1
             };
             if (!queue_try_add(&_rotation_event_queue, &event)) {
                 _ctrl->_dispatch_callback(crp42602y_ctrl::ON_COUNTER_FIFO_OVERFLOW);
             }
         }
     }
-    if (_rot_count < MAX_NUM_TO_AVERAGE) _rot_count++;
+    if (_rot_count < MAX_NUM_TO_AVERAGE + 1) _rot_count++;
 }
 
 void crp42602y_counter::_process()
@@ -252,9 +252,8 @@ void crp42602y_counter::_process()
         rotation_event_t event;
         queue_remove_blocking(&_rotation_event_queue, &event);
         // reset count if function (play/cue) has changed
-        if (event.num_to_average == 1) {
-            _count = 0;
-        }
+        if (event.num_to_average == 0) _count = 0;
+
         int fs = (int) !event.is_dir_a; // front side
         int bs = 1 - fs; // back side
         if (event.type == PLAY) {
@@ -276,7 +275,7 @@ void crp42602y_counter::_process()
             _total_playing_sec[bs] -= add_time;
 
             // from here, exclude 1st interval due to potential inaccuracy
-            if (event.num_to_average < 2) return;
+            if (event.num_to_average == 0) return;
 
             // shift hub_radius history
             for (int i = MAX_NUM_TO_AVERAGE - 1; i > 0; i--) {
@@ -285,13 +284,13 @@ void crp42602y_counter::_process()
             _hub_radius_cm_history[0] = hub_radius_cm;
             // average of hub_radius
             float average_hub_radius_cm = 0.0;
-            for (int i = 0; i < event.num_to_average - 1; i++) {
+            for (int i = 0; i < event.num_to_average; i++) {
                 average_hub_radius_cm += _hub_radius_cm_history[i];
             }
-            average_hub_radius_cm /= event.num_to_average - 1;
+            average_hub_radius_cm /= event.num_to_average;
 
             // [1] Tape thickness measurement at transition from CUE to PLAY
-            if (event.num_to_average == 2 && !_check_status(THICKNESS_BIT) && _estimated_hub_radius_cm[fs] > DEFAULT_ESTIMATED_TAPE_THICKNESS_UM / 1e4 * 10) {
+            if (event.num_to_average == 1 && !_check_status(THICKNESS_BIT) && _estimated_hub_radius_cm[fs] > DEFAULT_ESTIMATED_TAPE_THICKNESS_UM / 1e4 * 10) {
                 float estimated_rotations = _estimated_hub_radius_cm[fs] / (DEFAULT_ESTIMATED_TAPE_THICKNESS_UM / 1e4);
                 float original_hub_radius_cm = _last_hub_radius_cm[fs] - _estimated_hub_radius_cm[fs];
                 float actual_diff_hub_radius_cm = average_hub_radius_cm - original_hub_radius_cm;
