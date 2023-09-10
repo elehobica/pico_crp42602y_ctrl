@@ -46,11 +46,22 @@ class crp42602y_counter {
     crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl);
     virtual ~crp42602y_counter();
     void restart();
-    float get_counter();
+    float get_counter() const;
     void reset_counter();
-    uint32_t get_counter_state();
+    uint32_t get_counter_state() const;
 
     private:
+    typedef enum _rotation_event_type_t {
+        PLAY = 0,
+        CUE
+    } rotation_event_type_t;
+
+    typedef struct _rotation_event_t {
+        uint32_t interval_us;
+        rotation_event_type_t type;
+        bool is_dir_a;
+        int num_to_average;  // 0 ~ MAX_NUM_TO_AVERAGE: 0 means not to use for average
+    } rotation_event_t;
     typedef enum _counter_status_bit_t {
         NONE_BITS     = 0,
         TIME_BIT      = (1 << 0),
@@ -92,6 +103,8 @@ class crp42602y_counter {
     float _correct_tape_thickness_um(float tape_thickness_um);
     void _irq_callback();
     void _process();
+    void _process_play(const rotation_event_t& event);
+    void _process_cue(const rotation_event_t& event);
 
     friend crp42602y_ctrl;
     friend void crp42602y_counter_pio_irq_handler();
