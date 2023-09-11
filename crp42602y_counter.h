@@ -16,7 +16,7 @@
 
 #include "pico/util/queue.h"
 
-class crp42602y_ctrl;  // reference to avoid inter lock
+class crp42602y_ctrl_with_counter;  // reference to avoid inter lock
 
 // Assumption:
 // Play:   Rotation sensor is attached to the hub rolling up.
@@ -43,7 +43,7 @@ class crp42602y_counter {
         */
     } counter_state_t;
 
-    crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl);
+    crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl_with_counter* const ctrl);
     virtual ~crp42602y_counter();
     void restart();
     float get_counter() const;
@@ -85,7 +85,7 @@ class crp42602y_counter {
 
     static crp42602y_counter* _inst_map[4];
 
-    crp42602y_ctrl* const _ctrl;
+    crp42602y_ctrl_with_counter* const _ctrl;
     uint _sm;
     uint32_t _status;
     int _rot_count;
@@ -106,6 +106,6 @@ class crp42602y_counter {
     void _process_play(const rotation_event_t& event);
     void _process_cue(const rotation_event_t& event);
 
-    friend crp42602y_ctrl;
+    friend crp42602y_ctrl_with_counter;
     friend void crp42602y_counter_pio_irq_handler();
 };

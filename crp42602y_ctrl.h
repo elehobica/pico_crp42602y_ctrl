@@ -12,7 +12,7 @@
 #include "crp42602y_counter.h"
 
 class crp42602y_ctrl {
-    private:
+    protected:
     // Definitions
     typedef enum _command_type_t {
         CMD_TYPE_NONE = 0,
@@ -51,9 +51,6 @@ class crp42602y_ctrl {
     static constexpr command_t VOID_COMMAND           = {CMD_TYPE_NONE, DIR_KEEP};
     static constexpr command_t STOP_REVERSE_COMMAND   = {CMD_TYPE_STOP, DIR_REVERSE};
     static constexpr command_t WAIT_FF_READY_COMMAND  = {CMD_TYPE_WAIT, DIR_FORWARD};
-    static constexpr command_t WAIT_REW_READY_COMMAND = {CMD_TYPE_WAIT, DIR_BACKWARD};
-    static constexpr command_t HEAD_DIR_A_COMMAND     = {CMD_TYPE_HEAD_DIR, DIR_FORWARD};
-    static constexpr command_t HEAD_DIR_B_COMMAND     = {CMD_TYPE_HEAD_DIR, DIR_BACKWARD};
 
     public:
     // Definitions
@@ -98,7 +95,6 @@ class crp42602y_ctrl {
         const uint pin_rec_b_sw = 0      // GPIO Input: Rec switch for B (optional: 0 for not use)
     );
     virtual ~crp42602y_ctrl();
-    crp42602y_counter* get_counter_inst();
     bool is_playing() const;
     bool is_cueing() const;
     bool set_head_dir_is_a(const bool head_dir_is_a);
@@ -111,10 +107,9 @@ class crp42602y_ctrl {
     void register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type));
     void register_callback_all(void (*func)(const callback_type_t callback_type));
     void on_rotation_stop();
-    void process_loop();
+    virtual void process_loop();
 
-    private:
-    crp42602y_counter _counter;
+    protected:
     const uint _pin_cassette_detect;
     const uint _pin_gear_status_sw;
     const uint _pin_solenoid_ctrl;
@@ -130,7 +125,6 @@ class crp42602y_ctrl {
     reverse_mode_t _reverse_mode;
     bool _playing;
     bool _cueing;
-    bool _playing_for_wait;
     uint32_t _prev_filter_time;
     uint32_t _prev_func_time;
     bool _has_cur_gear_status;
@@ -151,7 +145,6 @@ class crp42602y_ctrl {
     void _gpio_callback(uint gpio, uint32_t events);
     void _filter_signal(const filter_signal_t filter_signal, const bool raw_signal, bool& filtered_signal);
     bool _dispatch_callback(const callback_type_t callback_type);
-    bool _is_playing_for_wait() const;
     void _set_power_enable(const bool flag);
     bool _get_power_enable() const;
     void _pull_solenoid(const bool flag) const;
@@ -162,10 +155,44 @@ class crp42602y_ctrl {
     bool _gear_func_sequence(const bool head_dir_is_a, const bool lift_head, const bool reel_fwd);
     bool _gear_return_sequence();
     bool _get_dir_is_a(const direction_t dir) const;
-    bool _is_que_ready_for_counter(direction_t dir) const;
     bool _stop(const direction_t dir);
     bool _play(const direction_t dir);
     bool _cue(const direction_t dir);
+    virtual void _process_filter(uint32_t now);
+    virtual void _process_set_eject_detection();
+    virtual void _process_timeout_power_off(uint32_t now);
+    virtual void _process_command();
+    virtual void _process_callbacks();
+};
+
+class crp42602y_ctrl_with_counter : public crp42602y_ctrl {
+    protected:
+    static constexpr command_t WAIT_REW_READY_COMMAND = {CMD_TYPE_WAIT, DIR_BACKWARD};
+    static constexpr command_t HEAD_DIR_A_COMMAND     = {CMD_TYPE_HEAD_DIR, DIR_FORWARD};
+    static constexpr command_t HEAD_DIR_B_COMMAND     = {CMD_TYPE_HEAD_DIR, DIR_BACKWARD};
+
+    public:
+    crp42602y_ctrl_with_counter (
+        const uint pin_cassette_detect,  // GPIO Input: Cassette detection
+        const uint pin_gear_status_sw,   // GPIO Input: Gear function status switch
+        const uint pin_rotation_sens,    // GPIO Input: Rotation sensor
+        const uint pin_solenoid_ctrl,    // GPIO Output: This needs additional circuit to control solenoid
+        const uint pin_power_enable = 0, // GPIO Output: Power contrl (for timeout disable) (optional: 0 for not use)
+        const uint pin_rec_a_sw = 0,     // GPIO Input: Rec switch for A (optional: 0 for not use)
+        const uint pin_rec_b_sw = 0      // GPIO Input: Rec switch for B (optional: 0 for not use)
+    );
+    virtual ~crp42602y_ctrl_with_counter();
+    crp42602y_counter* get_counter_inst();
+    virtual void process_loop();
+
+    protected:
+    crp42602y_counter _counter;
+    bool _playing_for_wait;
+
+    bool _is_playing_for_wait() const;
+    bool _is_que_ready_for_counter(direction_t dir) const;
+    virtual void _process_set_eject_detection();
+    virtual void _process_command();
 
     friend crp42602y_counter;
 };

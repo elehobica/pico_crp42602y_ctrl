@@ -33,7 +33,6 @@ crp42602y_ctrl::crp42602y_ctrl(
     const uint pin_rec_a_sw,
     const uint pin_rec_b_sw
 ) :
-    _counter(pin_rotation_sens, this),
     _pin_cassette_detect(pin_cassette_detect),
     _pin_gear_status_sw(pin_gear_status_sw),
     _pin_solenoid_ctrl(pin_solenoid_ctrl),
@@ -49,7 +48,6 @@ crp42602y_ctrl::crp42602y_ctrl(
     _reverse_mode(RVS_ONE_ROUND),
     _playing(false),
     _cueing(false),
-    _playing_for_wait(false),
     _prev_filter_time(0),
     _prev_func_time(0),
     _has_cur_gear_status(false),
@@ -96,11 +94,6 @@ crp42602y_ctrl::~crp42602y_ctrl()
 {
     queue_free(&_command_queue);
     queue_free(&_callback_queue);
-}
-
-crp42602y_counter* crp42602y_ctrl::get_counter_inst()
-{
-    return &_counter;
 }
 
 bool crp42602y_ctrl::is_playing() const
@@ -230,134 +223,11 @@ void crp42602y_ctrl::on_rotation_stop()
 void crp42602y_ctrl::process_loop()
 {
     uint32_t now = _millis();
-
-    if (_get_diff_time(_prev_filter_time, now) >= SIGNAL_FILTER_MS) {
-        // Switch filters
-        _filter_signal(FILT_CASSETTE_DETECT, !gpio_get(_pin_cassette_detect), _has_cassette);
-        _filter_signal(FILT_REC_A_OK, ((_pin_rec_a_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_a_ok);
-        _filter_signal(FILT_REC_B_OK, ((_pin_rec_b_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_b_ok);
-        _prev_filter_time = now;
-    }
-
-    // Cassette set/eject detection
-    if (!_prev_has_cassette && _has_cassette) {
-        _counter.restart();
-        _dispatch_callback(ON_CASSETTE_SET);
-    } else if (_prev_has_cassette && !_has_cassette) {
-        _counter.restart();
-        _dispatch_callback(ON_CASSETTE_EJECT);
-        if (_gear_is_in_func()) {
-            send_command(STOP_COMMAND);
-        }
-    }
-    _prev_has_cassette = _has_cassette;
-
-    // Timeout power off (for mechanism)
-    if (_gear_is_in_func() || !_get_power_enable() || _pin_power_ctrl == 0) {
-        _prev_func_time = now;
-    }
-    if (_get_diff_time(_prev_func_time, now) >= POWER_OFF_TIMEOUT_SEC * 1000 && _get_power_enable()) {
-        _set_power_enable(false);
-        _dispatch_callback(ON_TIMEOUT_POWER_OFF);
-    }
-
-    // Process command
-    //while (queue_get_level(&_command_queue) > 0) {
-    if (queue_get_level(&_command_queue) > 0) {
-        command_t command;
-        queue_peek_blocking(&_command_queue, &command);
-        switch (command.type) {
-        case CMD_TYPE_STOP:
-            if (_stop(command.dir)) {
-                _playing = false;
-                _cueing = false;
-                _playing_for_wait = false;
-                _dispatch_callback(ON_STOP);
-            }
-            queue_remove_blocking(&_command_queue, &command);
-            break;
-        case CMD_TYPE_PLAY:
-            if (_play(command.dir)) {
-                _playing = true;
-                _cueing = false;
-                _playing_for_wait = false;
-                if (command.dir == DIR_REVERSE) {
-                    _dispatch_callback(ON_REVERSE);
-                } else {
-                    _dispatch_callback(ON_PLAY);
-                }
-            }
-            queue_remove_blocking(&_command_queue, &command);
-            break;
-        case CMD_TYPE_CUE: {
-            if (!_is_que_ready_for_counter(command.dir)) {
-                bool head_dir_is_a = _head_dir_is_a;
-                _cue_dir_is_a = _get_dir_is_a(command.dir);
-                if (_play(command.dir)) {
-                    _playing = false;
-                    _cueing = true;
-                    _playing_for_wait = true;
-                    // remove CUE command
-                    queue_remove_blocking(&_command_queue, &command);
-                    // 1. add WAIT command
-                    const command_t* wait_command = (command.dir == DIR_FORWARD) ? &WAIT_FF_READY_COMMAND : &WAIT_REW_READY_COMMAND;
-                    if (!queue_try_add(&_command_queue, wait_command)) {
-                        _dispatch_callback(ON_COMMAND_FIFO_OVERFLOW);
-                    }
-                    // 2. add HEAD_DIR command
-                    const command_t* head_dir_command = (head_dir_is_a) ? &HEAD_DIR_A_COMMAND : &HEAD_DIR_B_COMMAND;
-                    if (!queue_try_add(&_command_queue, head_dir_command)) {
-                        _dispatch_callback(ON_COMMAND_FIFO_OVERFLOW);
-                    }
-                    // 3. add original CUE command
-                    if (!queue_try_add(&_command_queue, &command)) {
-                        _dispatch_callback(ON_COMMAND_FIFO_OVERFLOW);
-                    }
-                }
-            } else {
-                if (_cue(command.dir)) {
-                    _playing = false;
-                    _cueing = true;
-                    _playing_for_wait = false;
-                    _dispatch_callback(ON_CUE);
-                }
-                queue_remove_blocking(&_command_queue, &command);
-            }
-            break;
-        }
-        case CMD_TYPE_WAIT:
-            if (_is_que_ready_for_counter(command.dir)) {
-                queue_remove_blocking(&_command_queue, &command);
-            }
-            break;
-        case CMD_TYPE_HEAD_DIR:
-            if (command.dir == DIR_FORWARD) {
-                _head_dir_is_a = true;
-            } else if (command.dir == DIR_BACKWARD) {
-                _head_dir_is_a = false;
-            }
-            queue_remove_blocking(&_command_queue, &command);
-            break;
-        default:
-            break;
-        }
-        for (int i = NUM_COMMAND_HISTORY_ISSUED - 1; i >= 1; i--) {
-            _command_history_issued[i] = _command_history_issued[i - 1];
-        }
-        _command_history_issued[0] = command;
-    }
-
-    // Process callback
-    while (queue_get_level(&_callback_queue) > 0) {
-        callback_type_t callback_type;
-        queue_remove_blocking(&_callback_queue, &callback_type);
-        if (_callbacks[callback_type] != nullptr) {
-            _callbacks[callback_type](callback_type);
-        }
-    }
-
-    // Process counter
-    _counter._process();
+    _process_filter(now);
+    _process_set_eject_detection();
+    _process_timeout_power_off(now);
+    _process_command();
+    _process_callbacks();
 }
 
 void crp42602y_ctrl::_filter_signal(const filter_signal_t filter_signal, const bool raw_signal, bool& filtered_signal)
@@ -377,11 +247,6 @@ void crp42602y_ctrl::_filter_signal(const filter_signal_t filter_signal, const b
 bool crp42602y_ctrl::_dispatch_callback(const callback_type_t callback_type)
 {
     return queue_try_add(&_callback_queue, &callback_type);
-}
-
-bool crp42602y_ctrl::_is_playing_for_wait() const
-{
-    return _playing_for_wait;
 }
 
 void crp42602y_ctrl::_set_power_enable(const bool flag)
@@ -518,12 +383,6 @@ bool crp42602y_ctrl::_get_dir_is_a(direction_t dir) const
     return dir_is_a;
 }
 
-bool crp42602y_ctrl::_is_que_ready_for_counter(direction_t dir) const
-{
-    int fs = (int) !_get_dir_is_a(dir);
-    return _counter._check_status(crp42602y_counter::RADIUS_A_BIT << fs);
-}
-
 bool crp42602y_ctrl::_stop(direction_t dir)
 {
     if (_gear_is_in_func()) {
@@ -579,4 +438,247 @@ bool crp42602y_ctrl::_cue(direction_t dir)
     bool flag = _gear_func_sequence(_head_dir_is_a, false, _cue_dir_is_a);
     _gear_changing = false;
     return flag;
+}
+
+void crp42602y_ctrl::_process_filter(uint32_t now)
+{
+    if (_get_diff_time(_prev_filter_time, now) >= SIGNAL_FILTER_MS) {
+        // Switch filters
+        _filter_signal(FILT_CASSETTE_DETECT, !gpio_get(_pin_cassette_detect), _has_cassette);
+        _filter_signal(FILT_REC_A_OK, ((_pin_rec_a_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_a_ok);
+        _filter_signal(FILT_REC_B_OK, ((_pin_rec_b_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_b_ok);
+        _prev_filter_time = now;
+    }
+}
+
+void crp42602y_ctrl::_process_set_eject_detection()
+{
+    // Cassette set/eject detection
+    if (!_prev_has_cassette && _has_cassette) {
+        _dispatch_callback(ON_CASSETTE_SET);
+    } else if (_prev_has_cassette && !_has_cassette) {
+        _dispatch_callback(ON_CASSETTE_EJECT);
+        if (_gear_is_in_func()) {
+            send_command(STOP_COMMAND);
+        }
+    }
+    _prev_has_cassette = _has_cassette;
+}
+
+void crp42602y_ctrl::_process_timeout_power_off(uint32_t now)
+{
+    // Timeout power off (for mechanism)
+    if (_gear_is_in_func() || !_get_power_enable() || _pin_power_ctrl == 0) {
+        _prev_func_time = now;
+    }
+    if (_get_diff_time(_prev_func_time, now) >= POWER_OFF_TIMEOUT_SEC * 1000 && _get_power_enable()) {
+        _set_power_enable(false);
+        _dispatch_callback(ON_TIMEOUT_POWER_OFF);
+    }
+}
+
+void crp42602y_ctrl::_process_command()
+{
+    // Process command
+    if (queue_get_level(&_command_queue) > 0) {
+        command_t command;
+        queue_remove_blocking(&_command_queue, &command);
+        switch (command.type) {
+        case CMD_TYPE_STOP:
+            if (_stop(command.dir)) {
+                _playing = false;
+                _cueing = false;
+                _dispatch_callback(ON_STOP);
+            }
+            break;
+        case CMD_TYPE_PLAY:
+            if (_play(command.dir)) {
+                _playing = true;
+                _cueing = false;
+                if (command.dir == DIR_REVERSE) {
+                    _dispatch_callback(ON_REVERSE);
+                } else {
+                    _dispatch_callback(ON_PLAY);
+                }
+            }
+            break;
+        case CMD_TYPE_CUE:
+            if (_cue(command.dir)) {
+                _playing = false;
+                _cueing = true;
+                _dispatch_callback(ON_CUE);
+            }
+            break;
+        default:
+            break;
+        }
+        for (int i = NUM_COMMAND_HISTORY_ISSUED - 1; i >= 1; i--) {
+            _command_history_issued[i] = _command_history_issued[i - 1];
+        }
+        _command_history_issued[0] = command;
+    }
+}
+
+void crp42602y_ctrl::_process_callbacks()
+{
+    // Process callback
+    while (queue_get_level(&_callback_queue) > 0) {
+        callback_type_t callback_type;
+        queue_remove_blocking(&_callback_queue, &callback_type);
+        if (_callbacks[callback_type] != nullptr) {
+            _callbacks[callback_type](callback_type);
+        }
+    }
+}
+
+// -------------------------------------------------------------------------------
+
+crp42602y_ctrl_with_counter::crp42602y_ctrl_with_counter(
+    const uint pin_cassette_detect,
+    const uint pin_gear_status_sw,
+    const uint pin_rotation_sens,
+    const uint pin_solenoid_ctrl,
+    const uint pin_power_ctrl,
+    const uint pin_rec_a_sw,
+    const uint pin_rec_b_sw
+) :
+    crp42602y_ctrl(pin_cassette_detect, pin_gear_status_sw, pin_rotation_sens, pin_solenoid_ctrl, pin_power_ctrl, pin_rec_a_sw, pin_rec_b_sw), 
+    _counter(pin_rotation_sens, this),
+    _playing_for_wait(false)
+{
+}
+
+crp42602y_ctrl_with_counter::~crp42602y_ctrl_with_counter()
+{
+}
+
+crp42602y_counter* crp42602y_ctrl_with_counter::get_counter_inst()
+{
+    return &_counter;
+}
+
+void crp42602y_ctrl_with_counter::process_loop()
+{
+    uint32_t now = _millis();
+    _process_filter(now);
+    _process_set_eject_detection();
+    _process_timeout_power_off(now);
+    _process_command();
+    _process_callbacks();
+    _counter._process();
+}
+
+bool crp42602y_ctrl_with_counter::_is_playing_for_wait() const
+{
+    return _playing_for_wait;
+}
+
+bool crp42602y_ctrl_with_counter::_is_que_ready_for_counter(direction_t dir) const
+{
+    int fs = (int) !_get_dir_is_a(dir);
+    return _counter._check_status(crp42602y_counter::RADIUS_A_BIT << fs);
+}
+
+void crp42602y_ctrl_with_counter::_process_set_eject_detection()
+{
+    // Cassette set/eject detection
+    if (!_prev_has_cassette && _has_cassette) {
+        _counter.restart();
+        _dispatch_callback(ON_CASSETTE_SET);
+    } else if (_prev_has_cassette && !_has_cassette) {
+        _counter.restart();
+        _dispatch_callback(ON_CASSETTE_EJECT);
+        if (_gear_is_in_func()) {
+            send_command(STOP_COMMAND);
+        }
+    }
+    _prev_has_cassette = _has_cassette;
+}
+
+void crp42602y_ctrl_with_counter::_process_command()
+{
+    // Process command
+    if (queue_get_level(&_command_queue) > 0) {
+        command_t command;
+        queue_peek_blocking(&_command_queue, &command);
+        switch (command.type) {
+        case CMD_TYPE_STOP:
+            if (_stop(command.dir)) {
+                _playing = false;
+                _cueing = false;
+                _playing_for_wait = false;
+                _dispatch_callback(ON_STOP);
+            }
+            queue_remove_blocking(&_command_queue, &command);
+            break;
+        case CMD_TYPE_PLAY:
+            if (_play(command.dir)) {
+                _playing = true;
+                _cueing = false;
+                _playing_for_wait = false;
+                if (command.dir == DIR_REVERSE) {
+                    _dispatch_callback(ON_REVERSE);
+                } else {
+                    _dispatch_callback(ON_PLAY);
+                }
+            }
+            queue_remove_blocking(&_command_queue, &command);
+            break;
+        case CMD_TYPE_CUE: {
+            if (!_is_que_ready_for_counter(command.dir)) {
+                bool head_dir_is_a = _head_dir_is_a;
+                _cue_dir_is_a = _get_dir_is_a(command.dir);
+                if (_play(command.dir)) {
+                    _playing = false;
+                    _cueing = true;
+                    _playing_for_wait = true;
+                    // remove CUE command
+                    queue_remove_blocking(&_command_queue, &command);
+                    // 1. add WAIT command
+                    const command_t* wait_command = (command.dir == DIR_FORWARD) ? &WAIT_FF_READY_COMMAND : &WAIT_REW_READY_COMMAND;
+                    if (!queue_try_add(&_command_queue, wait_command)) {
+                        _dispatch_callback(ON_COMMAND_FIFO_OVERFLOW);
+                    }
+                    // 2. add HEAD_DIR command
+                    const command_t* head_dir_command = (head_dir_is_a) ? &HEAD_DIR_A_COMMAND : &HEAD_DIR_B_COMMAND;
+                    if (!queue_try_add(&_command_queue, head_dir_command)) {
+                        _dispatch_callback(ON_COMMAND_FIFO_OVERFLOW);
+                    }
+                    // 3. add original CUE command
+                    if (!queue_try_add(&_command_queue, &command)) {
+                        _dispatch_callback(ON_COMMAND_FIFO_OVERFLOW);
+                    }
+                }
+            } else {
+                if (_cue(command.dir)) {
+                    _playing = false;
+                    _cueing = true;
+                    _playing_for_wait = false;
+                    _dispatch_callback(ON_CUE);
+                }
+                queue_remove_blocking(&_command_queue, &command);
+            }
+            break;
+        }
+        case CMD_TYPE_WAIT:
+            if (_is_que_ready_for_counter(command.dir)) {
+                queue_remove_blocking(&_command_queue, &command);
+            }
+            break;
+        case CMD_TYPE_HEAD_DIR:
+            if (command.dir == DIR_FORWARD) {
+                _head_dir_is_a = true;
+            } else if (command.dir == DIR_BACKWARD) {
+                _head_dir_is_a = false;
+            }
+            queue_remove_blocking(&_command_queue, &command);
+            break;
+        default:
+            break;
+        }
+        for (int i = NUM_COMMAND_HISTORY_ISSUED - 1; i >= 1; i--) {
+            _command_history_issued[i] = _command_history_issued[i - 1];
+        }
+        _command_history_issued[0] = command;
+    }
 }

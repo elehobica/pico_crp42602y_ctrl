@@ -36,7 +36,7 @@ void __isr __time_critical_func(crp42602y_counter_pio_irq_handler)()
     }
 }
 
-crp42602y_counter::crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl) :
+crp42602y_counter::crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl_with_counter* const ctrl) :
     _ctrl(ctrl), _sm(0),
     _status(NONE_BITS), _rot_count(0), _count(0),
     _total_playing_sec{NAN, NAN},

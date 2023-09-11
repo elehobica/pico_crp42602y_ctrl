@@ -71,7 +71,7 @@ static button_t btns_5way_tactile_plus2[] = {
 
 // Instances
 Buttons* buttons = nullptr;
-crp42602y_ctrl *crp42602y_ctrl0 = nullptr;
+crp42602y_ctrl_with_counter *crp42602y_ctrl0 = nullptr;
 crp42602y_counter *crp42602y_counter0 = nullptr;
 eq_nr *eq_nr0 = nullptr;
 ssd1306_t disp;
@@ -413,7 +413,7 @@ int main()
 
     // CRP42602Y_CTRL
     queue_init(&_callback_queue, sizeof(crp42602y_ctrl::callback_type_t), CALLBACK_QUEUE_LENGTH);
-    crp42602y_ctrl0 = new crp42602y_ctrl(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL, PIN_POWER_CTRL);
+    crp42602y_ctrl0 = new crp42602y_ctrl_with_counter(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL, PIN_POWER_CTRL);
     crp42602y_ctrl0->register_callback_all(crp42602y_callback);
     crp42602y_counter0 = crp42602y_ctrl0->get_counter_inst();
 
