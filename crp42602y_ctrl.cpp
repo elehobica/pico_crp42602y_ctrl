@@ -636,6 +636,7 @@ void crp42602y_ctrl_with_counter::_process_command()
                 _cueing = false;
                 _playing_for_wait = false;
                 if (command.dir == DIR_REVERSE) {
+                    _counter.reset();
                     _dispatch_callback(ON_REVERSE);
                 } else {
                     _dispatch_callback(ON_PLAY);

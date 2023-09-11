@@ -118,7 +118,7 @@ void crp42602y_counter::restart()
     _tape_thickness_um = DEFAULT_ESTIMATED_TAPE_THICKNESS_UM;
 }
 
-float crp42602y_counter::get_counter() const
+float crp42602y_counter::get() const
 {
     bool is_dir_a = _ctrl->get_head_dir_is_a();
     if (_check_status(TIME_BIT)) {
@@ -128,7 +128,7 @@ float crp42602y_counter::get_counter() const
     }
 }
 
-void crp42602y_counter::reset_counter()
+void crp42602y_counter::reset()
 {
     bool is_dir_a = _ctrl->get_head_dir_is_a();
     if (_check_status(TIME_BIT)) {
@@ -136,7 +136,7 @@ void crp42602y_counter::reset_counter()
     }
 }
 
-uint32_t crp42602y_counter::get_counter_state() const
+uint32_t crp42602y_counter::get_state() const
 {
     if (_check_status(ALL_BITS)) {
         return FULL_READY;

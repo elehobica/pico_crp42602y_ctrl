@@ -356,7 +356,7 @@ void reset_counter()
 {
     if (crp42602y_counter0 != nullptr) {
         printf("Reset counter\r\n");
-        crp42602y_counter0->reset_counter();
+        crp42602y_counter0->reset();
     }
 }
 
@@ -621,12 +621,12 @@ int main()
                 }
                 // Counter
                 _ssd1306_clear_square(&disp, 6*6, 64-8, 6*7, 8);
-                float counter_sec_f = crp42602y_counter0->get_counter();
-                if (crp42602y_counter0->get_counter_state() == crp42602y_counter::UNDETERMINED) {
+                float counter_sec_f = crp42602y_counter0->get();
+                if (crp42602y_counter0->get_state() == crp42602y_counter::UNDETERMINED) {
                     ssd1306_draw_string(&disp, 6*6, 64-8, 1, "  --:--");
                 } else if ((!crp42602y_ctrl0->is_playing() && !crp42602y_ctrl0->is_cueing()) ||
                            crp42602y_ctrl0->is_playing() ||
-                           (crp42602y_ctrl0->is_cueing() && crp42602y_counter0->get_counter_state() != crp42602y_counter::PLAY_ONLY || (now_time / 125) % 8 > 0)) {
+                           (crp42602y_ctrl0->is_cueing() && crp42602y_counter0->get_state() != crp42602y_counter::PLAY_ONLY || (now_time / 125) % 8 > 0)) {
                             // blick counter during estimation under cueing
                     int counter_sec = (int) counter_sec_f;
                     int counter_min = counter_sec / 60;

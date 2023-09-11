@@ -46,9 +46,9 @@ class crp42602y_counter {
     crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl_with_counter* const ctrl);
     virtual ~crp42602y_counter();
     void restart();
-    float get_counter() const;
-    void reset_counter();
-    uint32_t get_counter_state() const;
+    float get() const;
+    void reset();
+    uint32_t get_state() const;
 
     private:
     typedef enum _rotation_event_type_t {
