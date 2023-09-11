@@ -217,7 +217,7 @@ void crp42602y_counter::_irq_callback()
                 _rot_count - 1
             };
             if (!queue_try_add(&_rotation_event_queue, &event)) {
-                _ctrl->_dispatch_callback(crp42602y_ctrl::ON_COUNTER_FIFO_OVERFLOW);
+                _ctrl->_dispatch_callback((crp42602y_ctrl::callback_type_t) crp42602y_ctrl_with_counter::ON_COUNTER_FIFO_OVERFLOW);
             }
         } else if (is_cueing) {
             rotation_event_t event = {
@@ -227,7 +227,7 @@ void crp42602y_counter::_irq_callback()
                 _rot_count - 1
             };
             if (!queue_try_add(&_rotation_event_queue, &event)) {
-                _ctrl->_dispatch_callback(crp42602y_ctrl::ON_COUNTER_FIFO_OVERFLOW);
+                _ctrl->_dispatch_callback((crp42602y_ctrl::callback_type_t) crp42602y_ctrl_with_counter::ON_COUNTER_FIFO_OVERFLOW);
             }
         }
     }

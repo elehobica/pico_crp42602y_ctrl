@@ -19,8 +19,7 @@ class crp42602y_ctrl {
         CMD_TYPE_STOP,
         CMD_TYPE_PLAY,
         CMD_TYPE_CUE,
-        CMD_TYPE_WAIT,
-        CMD_TYPE_HEAD_DIR
+        __NUM_CMD_TYPE__
     } command_type_t;
     typedef enum _direction_t {
         DIR_KEEP = 0,  // relative Forward
@@ -50,7 +49,6 @@ class crp42602y_ctrl {
     // Internal commands
     static constexpr command_t VOID_COMMAND           = {CMD_TYPE_NONE, DIR_KEEP};
     static constexpr command_t STOP_REVERSE_COMMAND   = {CMD_TYPE_STOP, DIR_REVERSE};
-    static constexpr command_t WAIT_FF_READY_COMMAND  = {CMD_TYPE_WAIT, DIR_FORWARD};
 
     public:
     // Definitions
@@ -63,7 +61,6 @@ class crp42602y_ctrl {
     typedef enum _callback_type_t {
         ON_GEAR_ERROR = 0,
         ON_COMMAND_FIFO_OVERFLOW,
-        ON_COUNTER_FIFO_OVERFLOW,
         ON_CASSETTE_SET,
         ON_CASSETTE_EJECT,
         ON_STOP,
@@ -72,7 +69,7 @@ class crp42602y_ctrl {
         ON_REVERSE,
         ON_TIMEOUT_POWER_OFF,
         ON_RECOVER_POWER_FROM_TIMEOUT,
-        __NUM_CALLBACKS__
+        __NUM_CALLBACK_TYPE__
     } callback_type_t;
 
     // Constants
@@ -104,8 +101,8 @@ class crp42602y_ctrl {
     reverse_mode_t get_reverse_mode() const;
     void recover_power_from_timeout();
     bool send_command(const command_t& command);
-    void register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type));
-    void register_callback_all(void (*func)(const callback_type_t callback_type));
+    virtual void register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type));
+    virtual void register_callback_all(void (*func)(const callback_type_t callback_type));
     void on_rotation_stop();
     virtual void process_loop();
 
@@ -138,7 +135,7 @@ class crp42602y_ctrl {
 
     command_t _command_history_registered[NUM_COMMAND_HISTORY_REGISTERED];
     command_t _command_history_issued[NUM_COMMAND_HISTORY_ISSUED];
-    void (*_callbacks[__NUM_CALLBACKS__])(const callback_type_t callback_type);
+    void (*_callbacks[__NUM_CALLBACK_TYPE__])(const callback_type_t callback_type);
     queue_t   _command_queue;
     queue_t   _callback_queue;
 
@@ -167,11 +164,23 @@ class crp42602y_ctrl {
 
 class crp42602y_ctrl_with_counter : public crp42602y_ctrl {
     protected:
-    static constexpr command_t WAIT_REW_READY_COMMAND = {CMD_TYPE_WAIT, DIR_BACKWARD};
-    static constexpr command_t HEAD_DIR_A_COMMAND     = {CMD_TYPE_HEAD_DIR, DIR_FORWARD};
-    static constexpr command_t HEAD_DIR_B_COMMAND     = {CMD_TYPE_HEAD_DIR, DIR_BACKWARD};
+    // Definitions
+    typedef enum _command_type_extend_t {
+        CMD_TYPE_WAIT = __NUM_CMD_TYPE__,
+        CMD_TYPE_HEAD_DIR,
+        __NUM_CMD_TYPE_EXTEND__
+    } command_type_extend_t;
+    // Internal commands
+    static constexpr command_t WAIT_FF_READY_COMMAND  = {(command_type_t) CMD_TYPE_WAIT, DIR_FORWARD};
+    static constexpr command_t WAIT_REW_READY_COMMAND = {(command_type_t) CMD_TYPE_WAIT, DIR_BACKWARD};
+    static constexpr command_t HEAD_DIR_A_COMMAND     = {(command_type_t) CMD_TYPE_HEAD_DIR, DIR_FORWARD};
+    static constexpr command_t HEAD_DIR_B_COMMAND     = {(command_type_t) CMD_TYPE_HEAD_DIR, DIR_BACKWARD};
 
     public:
+    typedef enum _callback_type_extend_t {
+        ON_COUNTER_FIFO_OVERFLOW = __NUM_CALLBACK_TYPE__,
+        __NUM_CALLBACK_TYPE_EXTEND__
+    } callback_type_extend_t;
     crp42602y_ctrl_with_counter (
         const uint pin_cassette_detect,  // GPIO Input: Cassette detection
         const uint pin_gear_status_sw,   // GPIO Input: Gear function status switch
@@ -183,16 +192,21 @@ class crp42602y_ctrl_with_counter : public crp42602y_ctrl {
     );
     virtual ~crp42602y_ctrl_with_counter();
     crp42602y_counter* get_counter_inst();
+    virtual void register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type));
+    virtual void register_callback_all(void (*func)(const callback_type_t callback_type));
     virtual void process_loop();
 
     protected:
     crp42602y_counter _counter;
     bool _playing_for_wait;
 
+    void (*_callbacks[__NUM_CALLBACK_TYPE_EXTEND__ - __NUM_CALLBACK_TYPE__])(const callback_type_t callback_type);
+
     bool _is_playing_for_wait() const;
     bool _is_que_ready_for_counter(direction_t dir) const;
     virtual void _process_set_eject_detection();
     virtual void _process_command();
+    virtual void _process_callbacks();
 
     friend crp42602y_counter;
 };

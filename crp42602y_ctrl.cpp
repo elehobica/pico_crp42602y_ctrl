@@ -65,7 +65,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     for (int i = 0; i < NUM_COMMAND_HISTORY_ISSUED; i++) {
         _command_history_issued[i] = VOID_COMMAND;
     }
-    for (int i = 0; i < __NUM_CALLBACKS__; i++) {
+    for (int i = 0; i < __NUM_CALLBACK_TYPE__; i++) {
         _callbacks[i] = nullptr;
     }
 
@@ -176,7 +176,7 @@ void crp42602y_ctrl::register_callback(const callback_type_t callback_type, void
 
 void crp42602y_ctrl::register_callback_all(void (*func)(const callback_type_t callback_type))
 {
-    for (int i = 0; i < __NUM_CALLBACKS__; i++) {
+    for (int i = 0; i < __NUM_CALLBACK_TYPE__; i++) {
         register_callback((const callback_type_t) i, func);
     }
 }
@@ -546,6 +546,9 @@ crp42602y_ctrl_with_counter::crp42602y_ctrl_with_counter(
     _counter(pin_rotation_sens, this),
     _playing_for_wait(false)
 {
+    for (int i = 0; i < __NUM_CALLBACK_TYPE_EXTEND__ - __NUM_CALLBACK_TYPE__; i++) {
+        _callbacks[i] = nullptr;
+    }
 }
 
 crp42602y_ctrl_with_counter::~crp42602y_ctrl_with_counter()
@@ -555,6 +558,22 @@ crp42602y_ctrl_with_counter::~crp42602y_ctrl_with_counter()
 crp42602y_counter* crp42602y_ctrl_with_counter::get_counter_inst()
 {
     return &_counter;
+}
+
+void crp42602y_ctrl_with_counter::register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type))
+{
+    if (callback_type >= __NUM_CALLBACK_TYPE__) {
+        _callbacks[callback_type - __NUM_CALLBACK_TYPE__] = func;
+    } else {
+        crp42602y_ctrl::register_callback(callback_type, func);
+    }
+}
+
+void crp42602y_ctrl_with_counter::register_callback_all(void (*func)(const callback_type_t callback_type))
+{
+    for (int i = 0; i < __NUM_CALLBACK_TYPE_EXTEND__; i++) {
+        register_callback((const callback_type_t) i, func);
+    }
 }
 
 void crp42602y_ctrl_with_counter::process_loop()
@@ -680,5 +699,23 @@ void crp42602y_ctrl_with_counter::_process_command()
             _command_history_issued[i] = _command_history_issued[i - 1];
         }
         _command_history_issued[0] = command;
+    }
+}
+
+void crp42602y_ctrl_with_counter::_process_callbacks()
+{
+    // Process callback
+    while (queue_get_level(&_callback_queue) > 0) {
+        callback_type_t callback_type;
+        queue_remove_blocking(&_callback_queue, &callback_type);
+        if (callback_type >= __NUM_CALLBACK_TYPE__) {
+            if (_callbacks[callback_type - __NUM_CALLBACK_TYPE__] != nullptr) {
+                _callbacks[callback_type - __NUM_CALLBACK_TYPE__](callback_type);
+            }
+        } else {
+            if (crp42602y_ctrl::_callbacks[callback_type] != nullptr) {
+                crp42602y_ctrl::_callbacks[callback_type](callback_type);
+            }
+        }
     }
 }

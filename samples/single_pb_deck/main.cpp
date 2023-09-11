@@ -523,7 +523,7 @@ int main()
                 printf("Command FIFO overflow\r\n");
                 prev_disp_time = 0;
                 break;
-            case crp42602y_ctrl::ON_COUNTER_FIFO_OVERFLOW:
+            case crp42602y_ctrl_with_counter::ON_COUNTER_FIFO_OVERFLOW:
                 printf("Counter FIFO overflow\r\n");
                 prev_disp_time = 0;
                 break;
