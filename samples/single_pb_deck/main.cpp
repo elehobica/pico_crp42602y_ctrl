@@ -5,11 +5,12 @@
 /------------------------------------------------------*/
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <cmath>
 
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
-#include "hardware/pwm.h"
 #include "pico/util/queue.h"
 
 #include "Buttons.h"
@@ -25,7 +26,7 @@ static constexpr uint PIN_LED = PICO_DEFAULT_LED_PIN;
 static constexpr uint PIN_SOLENOID_CTRL   = 2;
 static constexpr uint PIN_CASSETTE_DETECT = 3;
 static constexpr uint PIN_GEAR_STATUS_SW  = 4;
-static constexpr uint PIN_ROTATION_SENS   = 5;  // This needs to be PWM_B pin
+static constexpr uint PIN_ROTATION_SENS   = 5;
 static constexpr uint PIN_POWER_CTRL      = 6;
 
 // EQ NR control pins
@@ -46,10 +47,9 @@ static constexpr uint PIN_RESET_BUTTON  = 27;
 static constexpr uint PIN_SSD1306_SDA = 8;
 static constexpr uint PIN_SSD1306_SCL = 9;
 
-// ADC Timer & frequency
+// Timer & frequency
 static repeating_timer_t timer;
 static constexpr int INTERVAL_MS_BUTTONS_CHECK = 50;
-static constexpr int INTERVAL_MS_CRP42602Y_CTRL_FUNC = 100;  // > INTERVAL_MS_BUTTONS_CHECK
 
 static uint32_t _count = 0;
 //static uint32_t _t = 0;
@@ -63,15 +63,16 @@ static button_t btns_5way_tactile_plus2[] = {
     {"reset",  PIN_RESET_BUTTON,  &Buttons::DEFAULT_BUTTON_SINGLE_CONFIG},
     {"set",    PIN_SET_BUTTON,    &Buttons::DEFAULT_BUTTON_SINGLE_CONFIG},
     {"center", PIN_CENTER_BUTTON, &Buttons::DEFAULT_BUTTON_MULTI_CONFIG},
-    {"right",  PIN_RIGHT_BUTTON,  &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG},
-    {"left",   PIN_LEFT_BUTTON,   &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG},
+    {"right",  PIN_RIGHT_BUTTON,  &Buttons::DEFAULT_BUTTON_MULTI_CONFIG},
+    {"left",   PIN_LEFT_BUTTON,   &Buttons::DEFAULT_BUTTON_MULTI_CONFIG},
     {"down",   PIN_DOWN_BUTTON,   &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG},
     {"up",     PIN_UP_BUTTON,     &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG}
 };
 
 // Instances
 Buttons* buttons = nullptr;
-crp42602y_ctrl *crp42602y_ctrl0 = nullptr;
+crp42602y_ctrl_with_counter *crp42602y_ctrl0 = nullptr;
+crp42602y_counter *crp42602y_counter0 = nullptr;
 eq_nr *eq_nr0 = nullptr;
 ssd1306_t disp;
 
@@ -95,12 +96,12 @@ const uint8_t font_reverse_mode[] =
     0x10,0x08,0xFE,0x08,0x7C,0x08,0x38,0x08,0x10,0x08,0x20,0x04,0xC0,0x03,0x00,0x00
 };
 
-static inline uint64_t _micros(void)
+static inline uint64_t _micros()
 {
     return to_us_since_boot(get_absolute_time());
 }
 
-static inline uint32_t _millis(void)
+static inline uint32_t _millis()
 {
     return to_ms_since_boot(get_absolute_time());
 }
@@ -171,13 +172,6 @@ static bool periodic_func(repeating_timer_t *rt)
         //uint64_t t0 = _micros();
         buttons->scan_periodic();
         //_t = (uint32_t) (_micros() - t0);
-    }
-    if (_count % (INTERVAL_MS_CRP42602Y_CTRL_FUNC / INTERVAL_MS_BUTTONS_CHECK) == 0) {
-        if (crp42602y_ctrl0 != nullptr) {
-            //uint64_t t0 = _micros();
-            crp42602y_ctrl0->periodic_func_100ms();
-            //_t = (uint32_t) (_micros() - t0);
-        }
     }
     _count++;
     return true; // keep repeating
@@ -358,6 +352,14 @@ void inc_nr(bool inc = true)
     ssd1306_show(&disp);
 }
 
+void reset_counter()
+{
+    if (crp42602y_counter0 != nullptr) {
+        printf("Reset counter\r\n");
+        crp42602y_counter0->reset();
+    }
+}
+
 void disp_default_contents()
 {
     _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
@@ -411,8 +413,9 @@ int main()
 
     // CRP42602Y_CTRL
     queue_init(&_callback_queue, sizeof(crp42602y_ctrl::callback_type_t), CALLBACK_QUEUE_LENGTH);
-    crp42602y_ctrl0 = new crp42602y_ctrl(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL, PIN_POWER_CTRL);
+    crp42602y_ctrl0 = new crp42602y_ctrl_with_counter(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL, PIN_POWER_CTRL);
     crp42602y_ctrl0->register_callback_all(crp42602y_callback);
+    crp42602y_counter0 = crp42602y_ctrl0->get_counter_inst();
 
     // EQ_NR
     eq_nr0 = new eq_nr(PIN_EQ_CTRL, PIN_NR_CTRL0, PIN_NR_CTRL1);
@@ -456,6 +459,7 @@ int main()
             if (c == 'v') inc_reverse_mode();
             if (c == 'e') inc_eq();
             if (c == 'n') inc_nr();
+            if (c == 'c') reset_counter();
         }
 
         // Button I/F
@@ -495,6 +499,9 @@ int main()
                 break;
             case EVT_LONG:
                 //printf("%s: Long\r\n", btnEvent.button_name);
+                if (strncmp(btnEvent.button_name, "left", 4) == 0) {
+                    reset_counter();
+                }
                 break;
             case EVT_LONG_LONG:
                 //printf("%s: LongLong\r\n", btnEvent.button_name);
@@ -514,6 +521,10 @@ int main()
                 break;
             case crp42602y_ctrl::ON_COMMAND_FIFO_OVERFLOW:
                 printf("Command FIFO overflow\r\n");
+                prev_disp_time = 0;
+                break;
+            case crp42602y_ctrl_with_counter::ON_COUNTER_FIFO_OVERFLOW:
+                printf("Counter FIFO overflow\r\n");
                 prev_disp_time = 0;
                 break;
             case crp42602y_ctrl::ON_CASSETTE_SET:
@@ -587,34 +598,47 @@ int main()
             }
         }
 
-        // Image Display
         if (now_time - prev_disp_time > 50) {
             if (_crp42602y_power) {
+                // Image Display
+                _ssd1306_clear_square(&disp, 0, 16, 128, 8*4);
                 if (!_has_cassette) {
-                    _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
                     ssd1306_draw_string(&disp, 32, 32-4, 1, "NO CASSETTE");
-                    ssd1306_show(&disp);
                     disp_count = 0;
                 } else {
                     if (crp42602y_ctrl0->is_playing()) {
                         uint32_t pos = disp_count/4 % 16;
-                        _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
                         _ssd1306_draw_play_arrow(&disp, crp42602y_ctrl0->get_head_dir_is_a(), pos);
-                        ssd1306_show(&disp);
                         disp_count++;
                     } else if (crp42602y_ctrl0->is_cueing()) {
                         uint32_t pos = disp_count % 16;
-                        _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
                         _ssd1306_draw_cue_arrow(&disp, crp42602y_ctrl0->get_cue_dir_is_a(), pos);
-                        ssd1306_show(&disp);
                         disp_count++;
                     } else {  // STOP
-                        _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
                         _ssd1306_draw_stop_arrow(&disp, crp42602y_ctrl0->get_head_dir_is_a());
-                        ssd1306_show(&disp);
                         disp_count = 0;
                     }
                 }
+                // Counter
+                _ssd1306_clear_square(&disp, 6*6, 64-8, 6*7, 8);
+                float counter_sec_f = crp42602y_counter0->get();
+                if (crp42602y_counter0->get_state() == crp42602y_counter::UNDETERMINED) {
+                    ssd1306_draw_string(&disp, 6*6, 64-8, 1, "  --:--");
+                } else if ((!crp42602y_ctrl0->is_playing() && !crp42602y_ctrl0->is_cueing()) ||
+                           crp42602y_ctrl0->is_playing() ||
+                           (crp42602y_ctrl0->is_cueing() && crp42602y_counter0->get_state() != crp42602y_counter::PLAY_ONLY || (now_time / 125) % 8 > 0)) {
+                            // blick counter during estimation under cueing
+                    int counter_sec = (int) counter_sec_f;
+                    int counter_min = counter_sec / 60;
+                    char str[16];
+                    if (counter_sec < 0 && counter_min == 0) {
+                        sprintf(str, "  -0:%02d", abs(counter_sec) % 60);
+                    } else {
+                        sprintf(str, "%4d:%02d", counter_min, abs(counter_sec) % 60);
+                    }
+                    ssd1306_draw_string(&disp, 6*6, 64-8, 1, str);
+                }
+                ssd1306_show(&disp);
             } else {
                 disp_count = 0;
             }

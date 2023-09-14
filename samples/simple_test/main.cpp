@@ -9,7 +9,6 @@
 
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
-#include "hardware/pwm.h"
 #include "pico/util/queue.h"
 
 #include "crp42602y_ctrl.h"
@@ -20,12 +19,8 @@ static constexpr uint PIN_LED = PICO_DEFAULT_LED_PIN;
 static constexpr uint PIN_SOLENOID_CTRL   = 2;
 static constexpr uint PIN_CASSETTE_DETECT = 3;
 static constexpr uint PIN_GEAR_STATUS_SW  = 4;
-static constexpr uint PIN_ROTATION_SENS   = 5;  // This needs to be PWM_B pin
+static constexpr uint PIN_ROTATION_SENS   = 5;
 static constexpr uint PIN_POWER_CTRL      = 6;  // Optional: 0 if not use
-
-// ADC Timer & frequency
-static repeating_timer_t timer;
-static constexpr int INTERVAL_MS_CRP42602Y_CTRL_FUNC = 100;
 
 static uint32_t _count = 0;
 //static uint32_t _t = 0;
@@ -38,28 +33,14 @@ static constexpr int CALLBACK_QUEUE_LENGTH = 16;
 // Instances
 crp42602y_ctrl *crp42602y_ctrl0 = nullptr;
 
-static inline uint64_t _micros(void)
+static inline uint64_t _micros()
 {
     return to_us_since_boot(get_absolute_time());
 }
 
-static inline uint32_t _millis(void)
+static inline uint32_t _millis()
 {
     return to_ms_since_boot(get_absolute_time());
-}
-
-static bool periodic_func(repeating_timer_t *rt)
-{
-    if (crp42602y_ctrl0 != nullptr) {
-        //uint64_t t0 = _micros();
-        crp42602y_ctrl0->periodic_func_100ms();
-        //_t = (uint32_t) (_micros() - t0);
-    }
-    if (_count % 10 == 0) {
-        gpio_put(PIN_LED, !gpio_get(PIN_LED));
-    }
-    _count++;
-    return true; // keep repeating
 }
 
 static void stop()
@@ -166,12 +147,6 @@ int main()
     queue_init(&_callback_queue, sizeof(crp42602y_ctrl::callback_type_t), CALLBACK_QUEUE_LENGTH);
     crp42602y_ctrl0 = new crp42602y_ctrl(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL, PIN_POWER_CTRL);
     crp42602y_ctrl0->register_callback_all(crp42602y_callback);
-
-    // negative timeout means exact delay (rather than delay between callbacks)
-    if (!add_repeating_timer_us(-INTERVAL_MS_CRP42602Y_CTRL_FUNC * 1000, periodic_func, nullptr, &timer)) {
-        printf("Failed to add timer\n");
-        return 0;
-    }
 
     printf("CRP42602Y control started\r\n");
 
