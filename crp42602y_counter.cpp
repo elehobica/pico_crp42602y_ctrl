@@ -36,8 +36,9 @@ void __isr __time_critical_func(crp42602y_counter_pio_irq_handler)()
     }
 }
 
-crp42602y_counter::crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl_with_counter* const ctrl) :
+crp42602y_counter::crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl) :
     _ctrl(ctrl), _sm(0),
+    _enable(false),
     _status(NONE_BITS), _rot_count(0), _count(0),
     _total_playing_sec{NAN, NAN},
     _estimated_playing_sec{NAN, NAN},
@@ -98,6 +99,11 @@ crp42602y_counter::~crp42602y_counter()
             irq_remove_handler(PIO_IRQ_x, crp42602y_counter_pio_irq_handler);
         }
     }
+}
+
+void crp42602y_counter::enable_counter()
+{
+    _enable = true;
 }
 
 void crp42602y_counter::restart()
@@ -182,12 +188,12 @@ void crp42602y_counter::_irq_callback()
     }
     bool is_playing = _ctrl->is_playing();
     bool is_cueing = _ctrl->is_cueing();
-    bool is_playing_for_wait = _ctrl->_is_playing_for_wait();
+    bool is_playing_internal = _ctrl->_is_playing_internal();
     bool gear_is_changing = _ctrl->_gear_is_changing();
     bool head_dir_is_a = _ctrl->get_head_dir_is_a();
     bool cue_dir_is_a = _ctrl->get_cue_dir_is_a();
     // Discard dummy rotations
-    if ((!is_playing && !is_cueing && !is_playing_for_wait) || gear_is_changing) {
+    if ((!is_playing && !is_cueing && !is_playing_internal) || gear_is_changing) {
         pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) -TIMEOUT_COUNT);
         _rot_count = 0;
         return;
@@ -208,8 +214,13 @@ void crp42602y_counter::_irq_callback()
     } else {
         pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) -TIMEOUT_COUNT);
     }
+    if (!_enable) {
+        _rot_count++;
+        return;
+    }
+
     if (_rot_count > 0) {  // ignore 1 time to avoid wrong interval inforamtion
-        if (is_playing || is_playing_for_wait) {
+        if (is_playing || is_playing_internal) {
             rotation_event_t event = {
                 accum_time_us + ADDITIONAL_US,
                 PLAY,

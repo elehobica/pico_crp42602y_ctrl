@@ -33,6 +33,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     const uint pin_rec_a_sw,
     const uint pin_rec_b_sw
 ) :
+    _counter(pin_rotation_sens, this),
     _pin_cassette_detect(pin_cassette_detect),
     _pin_gear_status_sw(pin_gear_status_sw),
     _pin_solenoid_ctrl(pin_solenoid_ctrl),
@@ -265,6 +266,11 @@ bool crp42602y_ctrl::_get_power_enable() const
 void crp42602y_ctrl::_pull_solenoid(const bool flag) const
 {
     gpio_put(_pin_solenoid_ctrl, flag);
+}
+
+bool crp42602y_ctrl::_is_playing_internal() const
+{
+    return _playing;
 }
 
 bool crp42602y_ctrl::_gear_is_changing() const
@@ -543,12 +549,12 @@ crp42602y_ctrl_with_counter::crp42602y_ctrl_with_counter(
     const uint pin_rec_b_sw
 ) :
     crp42602y_ctrl(pin_cassette_detect, pin_gear_status_sw, pin_rotation_sens, pin_solenoid_ctrl, pin_power_ctrl, pin_rec_a_sw, pin_rec_b_sw), 
-    _counter(pin_rotation_sens, this),
-    _playing_for_wait(false)
+    _playing_for_wait_cue(false)
 {
     for (int i = 0; i < __NUM_CALLBACK_TYPE_EXTEND__ - __NUM_CALLBACK_TYPE__; i++) {
         _callbacks[i] = nullptr;
     }
+    _counter.enable_counter();
 }
 
 crp42602y_ctrl_with_counter::~crp42602y_ctrl_with_counter()
@@ -587,9 +593,9 @@ void crp42602y_ctrl_with_counter::process_loop()
     _counter._process();
 }
 
-bool crp42602y_ctrl_with_counter::_is_playing_for_wait() const
+bool crp42602y_ctrl_with_counter::_is_playing_internal() const
 {
-    return _playing_for_wait;
+    return _playing_for_wait_cue;
 }
 
 bool crp42602y_ctrl_with_counter::_is_que_ready_for_counter(direction_t dir) const
@@ -625,7 +631,7 @@ void crp42602y_ctrl_with_counter::_process_command()
             if (_stop(command.dir)) {
                 _playing = false;
                 _cueing = false;
-                _playing_for_wait = false;
+                _playing_for_wait_cue = false;
                 _dispatch_callback(ON_STOP);
             }
             queue_remove_blocking(&_command_queue, &command);
@@ -634,7 +640,7 @@ void crp42602y_ctrl_with_counter::_process_command()
             if (_play(command.dir)) {
                 _playing = true;
                 _cueing = false;
-                _playing_for_wait = false;
+                _playing_for_wait_cue = false;
                 if (command.dir == DIR_REVERSE) {
                     _counter.reset();
                     _dispatch_callback(ON_REVERSE);
@@ -651,7 +657,7 @@ void crp42602y_ctrl_with_counter::_process_command()
                 if (_play(command.dir)) {
                     _playing = false;
                     _cueing = true;
-                    _playing_for_wait = true;
+                    _playing_for_wait_cue = true;
                     // remove CUE command
                     queue_remove_blocking(&_command_queue, &command);
                     // 1. add WAIT command
@@ -673,7 +679,7 @@ void crp42602y_ctrl_with_counter::_process_command()
                 if (_cue(command.dir)) {
                     _playing = false;
                     _cueing = true;
-                    _playing_for_wait = false;
+                    _playing_for_wait_cue = false;
                     _dispatch_callback(ON_CUE);
                 }
                 queue_remove_blocking(&_command_queue, &command);

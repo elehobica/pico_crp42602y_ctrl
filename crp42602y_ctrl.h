@@ -107,6 +107,7 @@ class crp42602y_ctrl {
     virtual void process_loop();
 
     protected:
+    crp42602y_counter _counter;
     const uint _pin_cassette_detect;
     const uint _pin_gear_status_sw;
     const uint _pin_solenoid_ctrl;
@@ -145,6 +146,7 @@ class crp42602y_ctrl {
     void _set_power_enable(const bool flag);
     bool _get_power_enable() const;
     void _pull_solenoid(const bool flag) const;
+    virtual bool _is_playing_internal() const;
     bool _gear_is_changing() const;
     bool _gear_is_in_func() const;
     void _gear_store_status(const bool head_dir_is_a, const bool lift_head, const bool reel_fwd);
@@ -160,6 +162,8 @@ class crp42602y_ctrl {
     virtual void _process_timeout_power_off(uint32_t now);
     virtual void _process_command();
     virtual void _process_callbacks();
+
+    friend crp42602y_counter;
 };
 
 class crp42602y_ctrl_with_counter : public crp42602y_ctrl {
@@ -197,16 +201,13 @@ class crp42602y_ctrl_with_counter : public crp42602y_ctrl {
     virtual void process_loop();
 
     protected:
-    crp42602y_counter _counter;
-    bool _playing_for_wait;
+    bool _playing_for_wait_cue;
 
     void (*_callbacks[__NUM_CALLBACK_TYPE_EXTEND__ - __NUM_CALLBACK_TYPE__])(const callback_type_t callback_type);
 
-    bool _is_playing_for_wait() const;
+    bool _is_playing_internal() const;
     bool _is_que_ready_for_counter(direction_t dir) const;
     virtual void _process_set_eject_detection();
     virtual void _process_command();
     virtual void _process_callbacks();
-
-    friend crp42602y_counter;
 };

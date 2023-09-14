@@ -16,6 +16,7 @@
 
 #include "pico/util/queue.h"
 
+class crp42602y_ctrl;  // reference to avoid inter lock
 class crp42602y_ctrl_with_counter;  // reference to avoid inter lock
 
 // Assumption:
@@ -35,16 +36,11 @@ class crp42602y_counter {
         PLAY_ONLY,
         EITHER_CUE_READY,
         FULL_READY
-        /*
-        UNDETERMINED = 0,
-        ESTIMATED,
-        SINGLE_SIDE_CALCULATED
-        BOTH_SIDE_CALCULATED
-        */
     } counter_state_t;
 
-    crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl_with_counter* const ctrl);
+    crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl);
     virtual ~crp42602y_counter();
+    void enable_counter();
     void restart();
     float get() const;
     void reset();
@@ -71,8 +67,6 @@ class crp42602y_counter {
         ALL_BITS      = TIME_BIT | RADIUS_A_BIT | RADIUS_B_BIT | THICKNESS_BIT
     } counter_status_bit_t;
 
-    static constexpr float    TAPE_SPEED_CM_PER_SEC = 4.75;
-    static constexpr float    DEFAULT_ESTIMATED_TAPE_THICKNESS_UM = 18.0;
     static constexpr uint32_t NUM_ROTATION_WINGS = 2;
     static constexpr float    ROTATION_GEAR_RATIO = 43.0 / 23.0;
     static constexpr uint32_t TIMEOUT_MILLI_SEC = 1000;
@@ -80,13 +74,16 @@ class crp42602y_counter {
     static constexpr uint32_t PIO_COUNT_DIV = 4;
     static constexpr uint32_t TIMEOUT_COUNT = TIMEOUT_MILLI_SEC * PIO_FREQUENCY_HZ / 1000 / PIO_COUNT_DIV;
     static constexpr uint32_t ADDITIONAL_US = 5 + 4;  // additional cycles from PIO program
-    static constexpr uint32_t MAX_NUM_TO_AVERAGE = 20;
     static constexpr uint     ROTATION_EVENT_QUEUE_LENGTH = 4;
+    static constexpr float    TAPE_SPEED_CM_PER_SEC = 4.75;
+    static constexpr float    DEFAULT_ESTIMATED_TAPE_THICKNESS_UM = 18.0;
+    static constexpr uint32_t MAX_NUM_TO_AVERAGE = 20;
 
     static crp42602y_counter* _inst_map[4];
 
-    crp42602y_ctrl_with_counter* const _ctrl;
+    crp42602y_ctrl* const _ctrl;
     uint _sm;
+    bool _enable;
     uint32_t _status;
     int _rot_count;
     int _count;
@@ -106,6 +103,7 @@ class crp42602y_counter {
     void _process_play(const rotation_event_t& event);
     void _process_cue(const rotation_event_t& event);
 
+    friend crp42602y_ctrl;
     friend crp42602y_ctrl_with_counter;
     friend void crp42602y_counter_pio_irq_handler();
 };
