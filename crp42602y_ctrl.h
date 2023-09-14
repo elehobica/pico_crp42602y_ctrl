@@ -51,7 +51,9 @@ class crp42602y_ctrl {
     static constexpr command_t STOP_REVERSE_COMMAND   = {CMD_TYPE_STOP, DIR_REVERSE};
 
     public:
-    // Definitions
+    /**
+     * Definitions
+     */
     typedef enum _reverse_mode_t {
         RVS_ONE_WAY = 0,
         RVS_ONE_ROUND,
@@ -72,8 +74,9 @@ class crp42602y_ctrl {
         __NUM_CALLBACK_TYPE__
     } callback_type_t;
 
-    // Constants
-    // User commands
+    /**
+     * Constatns - User commands
+     */
     static constexpr command_t STOP_COMMAND         = {CMD_TYPE_STOP, DIR_KEEP};
     static constexpr command_t PLAY_COMMAND         = {CMD_TYPE_PLAY, DIR_KEEP};
     static constexpr command_t PLAY_REVERSE_COMMAND = {CMD_TYPE_PLAY, DIR_REVERSE};
@@ -82,28 +85,114 @@ class crp42602y_ctrl {
     static constexpr command_t FF_COMMAND           = {CMD_TYPE_CUE,  DIR_FORWARD};
     static constexpr command_t REW_COMMAND          = {CMD_TYPE_CUE,  DIR_BACKWARD};
 
+    /**
+     * crp42602y_ctrl class constructor
+     *
+     * @param[in] pin_cassette_detect  // GPIO Input: Cassette detection
+     * @param[in] pin_gear_status_sw   // GPIO Input: Gear function status switch
+     * @param[in] pin_rotation_sens    // GPIO Input: Rotation sensor
+     * @param[in] pin_solenoid_ctrl    // GPIO Output: This needs additional circuit to control solenoid
+     * @param[in] pin_power_enable     // GPIO Output: Power contrl (for timeout disable) (optional: 0 for not use)
+     * @param[in] pin_rec_a_sw         // GPIO Input: Rec switch for A (optional: 0 for not use)
+     * @param[in] pin_rec_b_sw         // GPIO Input: Rec switch for B (optional: 0 for not use)
+     */
     crp42602y_ctrl(
-        const uint pin_cassette_detect,  // GPIO Input: Cassette detection
-        const uint pin_gear_status_sw,   // GPIO Input: Gear function status switch
-        const uint pin_rotation_sens,    // GPIO Input: Rotation sensor
-        const uint pin_solenoid_ctrl,    // GPIO Output: This needs additional circuit to control solenoid
-        const uint pin_power_enable = 0, // GPIO Output: Power contrl (for timeout disable) (optional: 0 for not use)
-        const uint pin_rec_a_sw = 0,     // GPIO Input: Rec switch for A (optional: 0 for not use)
-        const uint pin_rec_b_sw = 0      // GPIO Input: Rec switch for B (optional: 0 for not use)
+        const uint pin_cassette_detect,
+        const uint pin_gear_status_sw,
+        const uint pin_rotation_sens,
+        const uint pin_solenoid_ctrl,
+        const uint pin_power_enable = 0,
+        const uint pin_rec_a_sw = 0,
+        const uint pin_rec_b_sw = 0
     );
+
+    /**
+     * crp42602y_ctrl class destructor
+     */
     virtual ~crp42602y_ctrl();
+
+    /**
+     * get is playing
+     *
+     * @return true if playing
+     */
     bool is_playing() const;
+
+    /**
+     * get is cueing
+     *
+     * @return true if cueing
+     */
     bool is_cueing() const;
+
+    /**
+     * set head direction
+     *   setting value can be ignored if control has not stopped
+     *
+     * @param[in] head_dir_is_a head direction (true: A, false: B)
+     * @return head direction after set (to confirm if it's applied or ignored)
+     */
     bool set_head_dir_is_a(const bool head_dir_is_a);
+
+    /**
+     * get head direction
+     *
+     * @return head direction (true: A, false: B)
+     */
     bool get_head_dir_is_a() const;
+
+    /**
+     * get cue direction
+     *
+     * @return cue direction (true: A, false: B)
+     */
     bool get_cue_dir_is_a() const;
+
+    /**
+     * set reverse mode
+     *
+     * @param[in] mode reverse mode (RVS_ONE_WAY, RVS_ONE_ROUND or RVS_INFINITE_ROUND)
+     */
     void set_reverse_mode(const reverse_mode_t mode);
+
+    /**
+     * get reverse mode
+     *
+     * @return reverse mode (RVS_ONE_WAY, RVS_ONE_ROUND or RVS_INFINITE_ROUND)
+     */
     reverse_mode_t get_reverse_mode() const;
+
+    /**
+     * recover power from timeout
+     */
     void recover_power_from_timeout();
+
+    /**
+     * send command
+     *
+     * @param[in] command command (see command_t constants)
+     */
     bool send_command(const command_t& command);
+
+    /**
+     * register callback for each
+     *
+     * @param[in] callback_type callback type (see callback_type_t)
+     * @param[in] func callback function pointer
+     */
     virtual void register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type));
+
+    /**
+     * register callback for all
+     *
+     * @param[in] func callback function pointer
+     */
     virtual void register_callback_all(void (*func)(const callback_type_t callback_type));
-    void on_rotation_stop();
+
+    /**
+     * process loop
+     *   call this function from upper program repeatedly to process control
+     */
     virtual void process_loop();
 
     protected:
@@ -157,6 +246,7 @@ class crp42602y_ctrl {
     bool _stop(const direction_t dir);
     bool _play(const direction_t dir);
     bool _cue(const direction_t dir);
+    void _on_rotation_stop();
     virtual void _process_filter(uint32_t now);
     virtual void _process_set_eject_detection();
     virtual void _process_timeout_power_off(uint32_t now);

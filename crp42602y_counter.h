@@ -16,8 +16,9 @@
 
 #include "pico/util/queue.h"
 
-class crp42602y_ctrl;  // reference to avoid inter lock
-class crp42602y_ctrl_with_counter;  // reference to avoid inter lock
+// references to avoid inter lock
+class crp42602y_ctrl;
+class crp42602y_ctrl_with_counter;
 
 // Assumption:
 // Play:   Rotation sensor is attached to the hub rolling up.
@@ -31,6 +32,9 @@ class crp42602y_ctrl_with_counter;  // reference to avoid inter lock
 
 class crp42602y_counter {
     public:
+    /**
+     * counter state
+     */
     typedef enum _counter_state_t {
         UNDETERMINED = 0,
         PLAY_ONLY,
@@ -38,12 +42,44 @@ class crp42602y_counter {
         FULL_READY
     } counter_state_t;
 
+    /**
+     * crp42602y_counter class constructor
+     *
+     * @param[in] pin_rotation_sens  // GPIO Input: Rotation sensor
+     * @param[in] ctrl               // pointer of crp42602y_ctrl instance
+     */
     crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl);
+
+    /**
+     * crp42602y_counter class destructor
+     */
     virtual ~crp42602y_counter();
+
+    /**
+     * enable counter function
+     *   call this function to use counter function, otherewise this class only provide stop detection function
+     */
     void enable_counter();
+
+    /**
+     * restart the counter
+     *   it is supposed that this is called when the cassette has replaced
+     */
     void restart();
+
+    /**
+     * get the counter value of current side
+     */
     float get() const;
+
+    /**
+     * reeset the counter value of current side
+     */
     void reset();
+
+    /**
+     * reeset the counter state
+     */
     uint32_t get_state() const;
 
     private:

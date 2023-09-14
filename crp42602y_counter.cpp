@@ -202,7 +202,7 @@ void crp42602y_counter::_irq_callback()
     if (accum_time_us == 0) {
         pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) -TIMEOUT_COUNT);
         _rot_count = 0;
-        _ctrl->on_rotation_stop();
+        _ctrl->_on_rotation_stop();
         return;
     }
     //printf("%d\r\n", accum_time_us);
