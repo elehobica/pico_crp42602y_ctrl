@@ -320,15 +320,13 @@ void crp42602y_counter::_process_play(const rotation_event_t& event)
         printf("actual diff sec = %7.4f\r\n", actual_diff_sec);
         printf("----------------------------\r\n");
         */
-        if (abs(_estimated_playing_sec[fs] - actual_diff_sec) > 5.0) {
-            float error_sec = _estimated_playing_sec[fs] - actual_diff_sec;
-            _total_playing_sec[fs] -= error_sec;
-            _total_playing_sec[bs] += error_sec;
-            if (_check_status(RADIUS_A_BIT << bs)) {
-                original_hub_radius_cm = _last_hub_radius_cm[bs] - _estimated_hub_radius_cm[bs];
-                _last_hub_radius_cm[bs] = sqrt(pow(original_hub_radius_cm, 2.0) - actual_diff_area / M_PI);
-                _estimated_hub_radius_cm[bs] = 0.0;
-            }
+        float error_sec = _estimated_playing_sec[fs] - actual_diff_sec;
+        _total_playing_sec[fs] -= error_sec;
+        _total_playing_sec[bs] += error_sec;
+        if (_check_status(RADIUS_A_BIT << bs)) {
+            original_hub_radius_cm = _last_hub_radius_cm[bs] - _estimated_hub_radius_cm[bs];
+            _last_hub_radius_cm[bs] = sqrt(pow(original_hub_radius_cm, 2.0) - actual_diff_area / M_PI);
+            _estimated_hub_radius_cm[bs] = 0.0;
         }
         _estimated_playing_sec[fs] = 0.0;
         _estimated_playing_sec[bs] = 0.0;
@@ -340,7 +338,7 @@ void crp42602y_counter::_process_play(const rotation_event_t& event)
     _status |= RADIUS_A_BIT << fs;
 
     // [2] Tape thickness measurement during PLAY
-    if (_count == 40) {  // this is reference
+    if (_count == 40) {  // this is reference (need to avoid tape leader)
         _ref_hub_radius_cm = average_hub_radius_cm;
     } else if ((!_check_status(THICKNESS_BIT) && _count >= 100 && _count % 10 == 0) ||
                 (_count >= 200 && _count % 100 == 0)) {  // calculate diff from reference

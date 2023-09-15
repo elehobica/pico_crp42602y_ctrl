@@ -73,12 +73,12 @@ class crp42602y_counter {
     float get() const;
 
     /**
-     * reeset the counter value of current side
+     * reset the counter value of current side
      */
     void reset();
 
     /**
-     * reeset the counter state
+     * get the counter state
      */
     uint32_t get_state() const;
 
@@ -103,8 +103,8 @@ class crp42602y_counter {
         ALL_BITS      = TIME_BIT | RADIUS_A_BIT | RADIUS_B_BIT | THICKNESS_BIT
     } counter_status_bit_t;
 
-    static constexpr uint32_t NUM_ROTATION_WINGS = 2;
-    static constexpr float    ROTATION_GEAR_RATIO = 43.0 / 23.0;
+    static constexpr uint32_t NUM_ROTATION_WINGS = 2;  // determined by the physical wing number of rotation sensor obstacle
+    static constexpr float    ROTATION_GEAR_RATIO = 43.0 / 23.0;  // detemined by the gear teeth number ratio of hub and rotation sensor obstacle
     static constexpr uint32_t TIMEOUT_MILLI_SEC = 1000;
     static constexpr uint32_t PIO_FREQUENCY_HZ = 1000000;
     static constexpr uint32_t PIO_COUNT_DIV = 4;
