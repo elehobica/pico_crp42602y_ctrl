@@ -71,7 +71,8 @@ static button_t btns_5way_tactile_plus2[] = {
 
 // Instances
 Buttons* buttons = nullptr;
-crp42602y_ctrl *crp42602y_ctrl0 = nullptr;
+crp42602y_ctrl_with_counter *crp42602y_ctrl0 = nullptr;
+crp42602y_counter *crp42602y_counter0 = nullptr;
 eq_nr *eq_nr0 = nullptr;
 ssd1306_t disp;
 
@@ -351,6 +352,14 @@ void inc_nr(bool inc = true)
     ssd1306_show(&disp);
 }
 
+void reset_counter()
+{
+    if (crp42602y_counter0 != nullptr) {
+        printf("Reset counter\r\n");
+        crp42602y_counter0->reset();
+    }
+}
+
 void disp_default_contents()
 {
     _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
@@ -404,8 +413,9 @@ int main()
 
     // CRP42602Y_CTRL
     queue_init(&_callback_queue, sizeof(crp42602y_ctrl::callback_type_t), CALLBACK_QUEUE_LENGTH);
-    crp42602y_ctrl0 = new crp42602y_ctrl(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL, PIN_POWER_CTRL);
+    crp42602y_ctrl0 = new crp42602y_ctrl_with_counter(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL, PIN_POWER_CTRL);
     crp42602y_ctrl0->register_callback_all(crp42602y_callback);
+    crp42602y_counter0 = crp42602y_ctrl0->get_counter_inst();
 
     // EQ_NR
     eq_nr0 = new eq_nr(PIN_EQ_CTRL, PIN_NR_CTRL0, PIN_NR_CTRL1);
@@ -449,6 +459,7 @@ int main()
             if (c == 'v') inc_reverse_mode();
             if (c == 'e') inc_eq();
             if (c == 'n') inc_nr();
+            if (c == 'c') reset_counter();
         }
 
         // Button I/F
@@ -486,6 +497,12 @@ int main()
                     play(false);
                 }
                 break;
+            case EVT_LONG:
+                //printf("%s: Long\r\n", btnEvent.button_name);
+                if (strncmp(btnEvent.button_name, "left", 4) == 0) {
+                    reset_counter();
+                }
+                break;
             case EVT_LONG_LONG:
                 //printf("%s: LongLong\r\n", btnEvent.button_name);
                 break;
@@ -504,6 +521,10 @@ int main()
                 break;
             case crp42602y_ctrl::ON_COMMAND_FIFO_OVERFLOW:
                 printf("Command FIFO overflow\r\n");
+                prev_disp_time = 0;
+                break;
+            case crp42602y_ctrl_with_counter::ON_COUNTER_FIFO_OVERFLOW:
+                printf("Counter FIFO overflow\r\n");
                 prev_disp_time = 0;
                 break;
             case crp42602y_ctrl::ON_CASSETTE_SET:
@@ -598,6 +619,26 @@ int main()
                         disp_count = 0;
                     }
                 }
+                // Counter
+                _ssd1306_clear_square(&disp, 6*6, 64-8, 6*7, 8);
+                float counter_sec_f = crp42602y_counter0->get();
+                if (crp42602y_counter0->get_state() == crp42602y_counter::UNDETERMINED) {
+                    ssd1306_draw_string(&disp, 6*6, 64-8, 1, "  --:--");
+                } else if ((!crp42602y_ctrl0->is_playing() && !crp42602y_ctrl0->is_cueing()) ||
+                           crp42602y_ctrl0->is_playing() ||
+                           (crp42602y_ctrl0->is_cueing() && crp42602y_counter0->get_state() != crp42602y_counter::PLAY_ONLY || (now_time / 125) % 8 > 0)) {
+                            // blick counter during estimation under cueing
+                    int counter_sec = (int) counter_sec_f;
+                    int counter_min = counter_sec / 60;
+                    char str[16];
+                    if (counter_sec < 0 && counter_min == 0) {
+                        sprintf(str, "  -0:%02d", abs(counter_sec) % 60);
+                    } else {
+                        sprintf(str, "%4d:%02d", counter_min, abs(counter_sec) % 60);
+                    }
+                    ssd1306_draw_string(&disp, 6*6, 64-8, 1, str);
+                }
+                ssd1306_show(&disp);
             } else {
                 disp_count = 0;
             }
