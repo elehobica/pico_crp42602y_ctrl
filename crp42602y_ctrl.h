@@ -88,13 +88,13 @@ class crp42602y_ctrl {
     /**
      * crp42602y_ctrl class constructor
      *
-     * @param[in] pin_cassette_detect  // GPIO Input: Cassette detection
-     * @param[in] pin_gear_status_sw   // GPIO Input: Gear function status switch
-     * @param[in] pin_rotation_sens    // GPIO Input: Rotation sensor
-     * @param[in] pin_solenoid_ctrl    // GPIO Output: This needs additional circuit to control solenoid
-     * @param[in] pin_power_enable     // GPIO Output: Power contrl (for timeout disable) (optional: 0 for not use)
-     * @param[in] pin_rec_a_sw         // GPIO Input: Rec switch for A (optional: 0 for not use)
-     * @param[in] pin_rec_b_sw         // GPIO Input: Rec switch for B (optional: 0 for not use)
+     * @param[in] pin_cassette_detect GPIO Input: Cassette detection
+     * @param[in] pin_gear_status_sw  GPIO Input: Gear function status switch
+     * @param[in] pin_rotation_sens   GPIO Input: Rotation sensor
+     * @param[in] pin_solenoid_ctrl   GPIO Output: This needs additional circuit to control solenoid
+     * @param[in] pin_power_enable    GPIO Output: Power control (for timeout disable) (optional: 0 for not use)
+     * @param[in] pin_rec_a_sw        GPIO Input: Rec switch for A (optional: 0 for not use)
+     * @param[in] pin_rec_b_sw        GPIO Input: Rec switch for B (optional: 0 for not use)
      */
     crp42602y_ctrl(
         const uint pin_cassette_detect,
@@ -283,19 +283,50 @@ class crp42602y_ctrl_with_counter : public crp42602y_ctrl {
         ON_COUNTER_FIFO_OVERFLOW = __NUM_CALLBACK_TYPE__,
         __NUM_CALLBACK_TYPE_EXTEND__
     } callback_type_extend_t;
+
+    /**
+     * crp42602y_ctrl_with_counter class constructor
+     *
+     * @copydoc crp42602y_ctrl::crp42602y_ctrl
+     */
     crp42602y_ctrl_with_counter (
-        const uint pin_cassette_detect,  // GPIO Input: Cassette detection
-        const uint pin_gear_status_sw,   // GPIO Input: Gear function status switch
-        const uint pin_rotation_sens,    // GPIO Input: Rotation sensor
-        const uint pin_solenoid_ctrl,    // GPIO Output: This needs additional circuit to control solenoid
-        const uint pin_power_enable = 0, // GPIO Output: Power contrl (for timeout disable) (optional: 0 for not use)
-        const uint pin_rec_a_sw = 0,     // GPIO Input: Rec switch for A (optional: 0 for not use)
-        const uint pin_rec_b_sw = 0      // GPIO Input: Rec switch for B (optional: 0 for not use)
+        const uint pin_cassette_detect,
+        const uint pin_gear_status_sw,
+        const uint pin_rotation_sens,
+        const uint pin_solenoid_ctrl,
+        const uint pin_power_enable = 0,
+        const uint pin_rec_a_sw = 0,
+        const uint pin_rec_b_sw = 0
     );
+
+    /**
+     * crp42602y_ctrl_with_counter class destructor
+     */
     virtual ~crp42602y_ctrl_with_counter();
+
+    /**
+     * get counter instance
+     *
+     * @return crp42602y_counter instance
+     */
     crp42602y_counter* get_counter_inst();
+
+    /**
+     * register callback for each
+     * @copydoc crp42602y_ctrl::register_callback
+     */
     virtual void register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type));
+
+    /**
+     * register callback for all
+     * @copydoc crp42602y_ctrl::register_callback_all
+     */
     virtual void register_callback_all(void (*func)(const callback_type_t callback_type));
+
+    /**
+     * process loop
+     * @copydoc crp42602y_ctrl::process_loop
+     */
     virtual void process_loop();
 
     protected:

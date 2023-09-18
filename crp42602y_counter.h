@@ -38,15 +38,15 @@ class crp42602y_counter {
     typedef enum _counter_state_t {
         UNDETERMINED = 0,
         PLAY_ONLY,
-        EITHER_CUE_READY,
+        PLAY_AND_EITHER_CUE_READY,
         FULL_READY
     } counter_state_t;
 
     /**
      * crp42602y_counter class constructor
      *
-     * @param[in] pin_rotation_sens  // GPIO Input: Rotation sensor
-     * @param[in] ctrl               // pointer of crp42602y_ctrl instance
+     * @param[in] pin_rotation_sens GPIO Input: Rotation sensor
+     * @param[in] ctrl              pointer of crp42602y_ctrl instance
      */
     crp42602y_counter(const uint pin_rotation_sens, crp42602y_ctrl* const ctrl);
 

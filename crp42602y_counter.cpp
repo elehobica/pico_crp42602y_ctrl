@@ -142,7 +142,7 @@ uint32_t crp42602y_counter::get_state() const
     if (_check_status(ALL_BITS)) {
         return FULL_READY;
     } else if (_check_status(THICKNESS_BIT) && !_check_status(RADIUS_A_BIT | RADIUS_B_BIT)) {
-        return EITHER_CUE_READY;
+        return PLAY_AND_EITHER_CUE_READY;
     } else if (_check_status(TIME_BIT)) {
         return PLAY_ONLY;
     } else {
@@ -338,7 +338,7 @@ void crp42602y_counter::_process_play(const rotation_event_t& event)
     _status |= RADIUS_A_BIT << fs;
 
     // [2] Tape thickness measurement during PLAY
-    if (_count == 40) {  // this is reference (need to avoid tape leader)
+    if (_count == 40) {  // this is reference (need to avoid leader tape)
         _ref_hub_radius_cm = average_hub_radius_cm;
     } else if ((!_check_status(THICKNESS_BIT) && _count >= 100 && _count % 10 == 0) ||
                 (_count >= 200 && _count % 100 == 0)) {  // calculate diff from reference

@@ -204,7 +204,7 @@ void crp42602y_ctrl::_filter_signal(const filter_signal_t filter_signal, const b
     _signal_filter[filter_signal] = (_signal_filter[filter_signal] << 1) | raw_signal;
 
     // Apply if same value repeated SIGNAL_FILTER_TIMES times
-    uint32_t mask = (1U << SIGNAL_FILTER_TIMES) - 1;
+    uint32_t mask = (1UL << SIGNAL_FILTER_TIMES) - 1;
     if ((_signal_filter[filter_signal] & mask) == mask) {
         filtered_signal = true;
     } else if ((_signal_filter[filter_signal] & mask) == 0) {
@@ -457,8 +457,8 @@ void crp42602y_ctrl::_process_filter(uint32_t now)
     if (_get_diff_time(_prev_filter_time, now) >= SIGNAL_FILTER_MS) {
         // Switch filters
         _filter_signal(FILT_CASSETTE_DETECT, !gpio_get(_pin_cassette_detect), _has_cassette);
-        _filter_signal(FILT_REC_A_OK, ((_pin_rec_a_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_a_ok);
-        _filter_signal(FILT_REC_B_OK, ((_pin_rec_b_sw != 0) ? !gpio_get(_pin_rec_a_sw) : 0), _rec_b_ok);
+        _filter_signal(FILT_REC_A_OK, ((_pin_rec_a_sw != 0) ? !gpio_get(_pin_rec_a_sw) : false), _rec_a_ok);
+        _filter_signal(FILT_REC_B_OK, ((_pin_rec_b_sw != 0) ? !gpio_get(_pin_rec_a_sw) : false), _rec_b_ok);
         _prev_filter_time = now;
     }
 }
