@@ -101,11 +101,6 @@ crp42602y_counter::~crp42602y_counter()
     }
 }
 
-void crp42602y_counter::enable_counter()
-{
-    _enable = true;
-}
-
 void crp42602y_counter::restart()
 {
     _status = NONE_BITS;
@@ -153,6 +148,11 @@ uint32_t crp42602y_counter::get_state() const
     } else {
         return UNDETERMINED;
     }
+}
+
+void crp42602y_counter::_enable_counter()
+{
+    _enable = true;
 }
 
 bool crp42602y_counter::_check_status(uint32_t bits) const

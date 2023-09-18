@@ -56,12 +56,6 @@ class crp42602y_counter {
     virtual ~crp42602y_counter();
 
     /**
-     * enable counter function
-     *   call this function to use counter function, otherewise this class only provide stop detection function
-     */
-    void enable_counter();
-
-    /**
      * restart the counter
      *   it is supposed that this is called when the cassette has replaced
      */
@@ -132,6 +126,7 @@ class crp42602y_counter {
     float _tape_thickness_um;
     queue_t _rotation_event_queue;
 
+    void _enable_counter();
     bool _check_status(uint32_t bits) const;
     float _correct_tape_thickness_um(float tape_thickness_um);
     void _irq_callback();

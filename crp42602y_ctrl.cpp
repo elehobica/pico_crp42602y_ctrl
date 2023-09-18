@@ -554,7 +554,7 @@ crp42602y_ctrl_with_counter::crp42602y_ctrl_with_counter(
     for (int i = 0; i < __NUM_CALLBACK_TYPE_EXTEND__ - __NUM_CALLBACK_TYPE__; i++) {
         _callbacks[i] = nullptr;
     }
-    _counter.enable_counter();
+    _counter._enable_counter();
 }
 
 crp42602y_ctrl_with_counter::~crp42602y_ctrl_with_counter()
