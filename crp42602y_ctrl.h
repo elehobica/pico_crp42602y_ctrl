@@ -39,7 +39,7 @@ class crp42602y_ctrl {
     } filter_signal_t;
 
     // Constants
-    static constexpr uint32_t POWER_OFF_TIMEOUT_SEC = 300;
+    static constexpr uint32_t DEFAULT_POWER_OFF_TIMEOUT_SEC = 300;
     static constexpr uint     COMMAND_QUEUE_LENGTH = 6;
     static constexpr uint     CALLBACK_QUEUE_LENGTH = 4;
     static constexpr uint32_t SIGNAL_FILTER_MS = 100;
@@ -163,6 +163,13 @@ class crp42602y_ctrl {
     reverse_mode_t get_reverse_mode() const;
 
     /**
+     * set power off timeout second
+     *
+     * @param[in] sec seconds to set
+     */
+    void set_power_off_timeout_sec(uint32_t sec);
+
+    /**
      * recover power from timeout
      */
     void recover_power_from_timeout();
@@ -220,6 +227,7 @@ class crp42602y_ctrl {
     bool _cur_reel_fwd;
     bool _gear_changing;
     uint32_t _gear_last_time;
+    uint32_t _power_off_timeout_sec;
     bool _power_enable;
     uint32_t _signal_filter[__NUM_FILTER_SIGNALS__];
 

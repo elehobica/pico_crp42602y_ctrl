@@ -57,6 +57,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _cur_reel_fwd(false),
     _gear_changing(false),
     _gear_last_time(0),
+    _power_off_timeout_sec(DEFAULT_POWER_OFF_TIMEOUT_SEC),
     _power_enable(true),
     _signal_filter{}
 {
@@ -134,6 +135,11 @@ void crp42602y_ctrl::set_reverse_mode(const reverse_mode_t mode)
 crp42602y_ctrl::reverse_mode_t crp42602y_ctrl::get_reverse_mode() const
 {
     return _reverse_mode;
+}
+
+void crp42602y_ctrl::set_power_off_timeout_sec(uint32_t sec)
+{
+    _power_off_timeout_sec = sec;
 }
 
 void crp42602y_ctrl::recover_power_from_timeout()
@@ -477,7 +483,7 @@ void crp42602y_ctrl::_process_timeout_power_off(uint32_t now)
     if (_gear_is_in_func() || !_get_power_enable() || _pin_power_ctrl == 0) {
         _prev_func_time = now;
     }
-    if (_get_diff_time(_prev_func_time, now) >= POWER_OFF_TIMEOUT_SEC * 1000 && _get_power_enable()) {
+    if (_get_diff_time(_prev_func_time, now) >= _power_off_timeout_sec * 1000 && _get_power_enable()) {
         _set_power_enable(false);
         _dispatch_callback(ON_TIMEOUT_POWER_OFF);
     }
