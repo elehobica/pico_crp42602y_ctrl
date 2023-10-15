@@ -3,7 +3,7 @@
 ## Overview
 Control library for CRP42602Y auto-reverse cassette tape deck mechanism
 
-[![sample application](doc/sample_app.gif)]()
+![sample application](doc/sample_app.gif)
 
 ### Features
 * Generate solenoid pull timing for the function gear of CRP42602Y to support Play A/B, Cueing and Stop control

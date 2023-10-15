@@ -52,6 +52,9 @@
 | 31 | GP26 | GPIO Input | SET |
 | 32 | GP27 | GPIO Input | RESET |
 
+## Schematic
+[EQ_NR_Schematic](../single_pb_deck/doc/TA7668BP_CXA1332M_board_customized.pdf)
+
 ## Button operation
 * center: play/stop (single click), reverse play (double click)
 * down: fast forward

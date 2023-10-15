@@ -57,7 +57,7 @@ class crp42602y_counter {
 
     /**
      * restart the counter
-     *   it is supposed that this is called when the cassette has replaced
+     *   this is supposed to be called when the cassette has been replaced
      */
     void restart();
 
@@ -101,7 +101,7 @@ class crp42602y_counter {
     static constexpr float    ROTATION_GEAR_RATIO = 43.0 / 23.0;  // detemined by the gear teeth number ratio of hub and rotation sensor obstacle
     static constexpr uint32_t TIMEOUT_MILLI_SEC = 1000;
     static constexpr uint32_t PIO_FREQUENCY_HZ = 1000000;
-    static constexpr uint32_t PIO_COUNT_DIV = 4;
+    static constexpr uint32_t PIO_COUNT_DIV = 4;  // determined by the cycles for 1 count in PIO program
     static constexpr uint32_t TIMEOUT_COUNT = TIMEOUT_MILLI_SEC * PIO_FREQUENCY_HZ / 1000 / PIO_COUNT_DIV;
     static constexpr uint32_t ADDITIONAL_US = 5 + 4;  // additional cycles from PIO program
     static constexpr uint     ROTATION_EVENT_QUEUE_LENGTH = 4;

@@ -48,6 +48,11 @@
 | 31 | GP26 | GPIO Input | SET |
 | 32 | GP27 | GPIO Input | RESET |
 
+## EQ NR board (customized)
+<img src="doc/TA7668BP_CXA1332M_board_customized.jpg" width="400" />
+
+[EQ_NR_Schematic](doc/TA7668BP_CXA1332M_board_customized.pdf)
+
 ## Button operation
 * center: play/stop (single click), reverse play (double click)
 * down: fast forward
