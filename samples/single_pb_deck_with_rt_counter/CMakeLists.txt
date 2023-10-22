@@ -19,12 +19,15 @@ add_subdirectory(../lib/pico-ssd1306 ssd1306)
 add_executable(${PROJECT_NAME}
     main.cpp
     eq_nr.cpp
+    UserFlash.cpp
+    ConfigParam.cpp
 )
 
 # pull in common dependencies
 target_link_libraries(${PROJECT_NAME}
     pico_stdlib
     pico_multicore
+    hardware_flash
     crp42602y_ctrl
     buttons
     ssd1306

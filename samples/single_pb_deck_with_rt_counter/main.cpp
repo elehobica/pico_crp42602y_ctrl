@@ -19,6 +19,7 @@
 extern "C" {
 #include "ssd1306.h"
 }
+#include "configParam.h"
 
 static constexpr uint PIN_LED = PICO_DEFAULT_LED_PIN;
 
@@ -58,6 +59,9 @@ static bool _has_cassette = false;
 static bool _crp42602y_power = true;
 static queue_t _callback_queue;
 static constexpr int CALLBACK_QUEUE_LENGTH = 16;
+
+static volatile bool _core1_exec = false;
+static volatile bool _core1_is_running = false;
 
 static button_t btns_5way_tactile_plus2[] = {
     {"reset",  PIN_RESET_BUTTON,  &Buttons::DEFAULT_BUTTON_SINGLE_CONFIG},
@@ -203,20 +207,38 @@ static void rewind()
 
 static void crp42602y_process()
 {
+    _core1_is_running = true;
     stop();
-    while (true) {
+    while (_core1_exec) {
         crp42602y_ctrl0->process_loop();
+    }
+    _core1_is_running = false;
+}
+
+static void exec_core1_crp42602y_process()
+{
+    multicore_reset_core1();
+    _core1_exec = true;
+    multicore_launch_core1(crp42602y_process);
+}
+
+static void terminate_core1_crp42602y_process()
+{
+    _core1_exec = false;
+    // blocks until it ends
+    while (_core1_is_running) {
+        sleep_ms(10);
     }
 }
 
-void crp42602y_callback(const crp42602y_ctrl::callback_type_t callback_type)
+static void crp42602y_callback(const crp42602y_ctrl::callback_type_t callback_type)
 {
     if (!queue_try_add(&_callback_queue, &callback_type)) {
         printf("ERROR: _callback_queue is full\r\n");
     }
 }
 
-bool crp42602y_get_callback(crp42602y_ctrl::callback_type_t* callback_type)
+static bool crp42602y_get_callback(crp42602y_ctrl::callback_type_t* callback_type)
 {
     if (queue_get_level(&_callback_queue) > 0) {
         queue_remove_blocking(&_callback_queue, callback_type);
@@ -226,7 +248,7 @@ bool crp42602y_get_callback(crp42602y_ctrl::callback_type_t* callback_type)
     }
 }
 
-void inc_head_dir(bool inc = true)
+static void inc_head_dir(bool inc = true)
 {
     crp42602y_ctrl0->recover_power_from_timeout();
     bool head_dir_is_a = crp42602y_ctrl0->get_head_dir_is_a();
@@ -237,7 +259,7 @@ void inc_head_dir(bool inc = true)
     }
 }
 
-void inc_reverse_mode(bool inc = true)
+static void inc_reverse_mode(bool inc = true)
 {
     crp42602y_ctrl0->recover_power_from_timeout();
     crp42602y_ctrl::reverse_mode_t reverse_mode = crp42602y_ctrl0->get_reverse_mode();
@@ -266,7 +288,7 @@ void inc_reverse_mode(bool inc = true)
     ssd1306_show(&disp);
 }
 
-void inc_eq(bool inc = true)
+static void inc_eq(bool inc = true)
 {
     crp42602y_ctrl0->recover_power_from_timeout();
     eq_nr::eq_type_t eq_type = eq_nr0->get_eq_type();
@@ -306,7 +328,7 @@ void inc_eq(bool inc = true)
     ssd1306_show(&disp);
 }
 
-void inc_nr(bool inc = true)
+static void inc_nr(bool inc = true)
 {
     crp42602y_ctrl0->recover_power_from_timeout();
     eq_nr::nr_type_t nr_type = eq_nr0->get_nr_type();
@@ -352,7 +374,7 @@ void inc_nr(bool inc = true)
     ssd1306_show(&disp);
 }
 
-void reset_counter()
+static void reset_counter()
 {
     if (crp42602y_counter0 != nullptr) {
         printf("Reset counter\r\n");
@@ -360,7 +382,7 @@ void reset_counter()
     }
 }
 
-void disp_default_contents()
+static void disp_default_contents()
 {
     _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
     if (_has_cassette) {
@@ -377,6 +399,25 @@ void disp_default_contents()
     inc_reverse_mode(false);
     inc_eq(false);
     inc_nr(false);
+}
+
+static void load_from_flash()
+{
+    eq_nr0->set_eq_type((eq_nr::eq_type_t) GET_CFG_EQ_TYPE);
+    eq_nr0->set_nr_type((eq_nr::nr_type_t) GET_CFG_NR_TYPE);
+    crp42602y_ctrl0->set_reverse_mode((crp42602y_ctrl::reverse_mode_t) GET_CFG_REVERSE_MODE);
+}
+
+static void store_to_flash()
+{
+    configParam.setU32(ConfigParam::ParamID_t::CFG_EQ_TYPE, (uint32_t) eq_nr0->get_eq_type());
+    configParam.setU32(ConfigParam::ParamID_t::CFG_NR_TYPE, (uint32_t) eq_nr0->get_nr_type());
+    configParam.setU32(ConfigParam::ParamID_t::CFG_REVERSE_MODE, (uint32_t) crp42602y_ctrl0->get_reverse_mode());
+
+    // running core1 can let flash programming crash
+    terminate_core1_crp42602y_process();
+    configParam.finalize();
+    exec_core1_crp42602y_process();
 }
 
 int main()
@@ -414,6 +455,7 @@ int main()
     // CRP42602Y_CTRL
     queue_init(&_callback_queue, sizeof(crp42602y_ctrl::callback_type_t), CALLBACK_QUEUE_LENGTH);
     crp42602y_ctrl0 = new crp42602y_ctrl_with_counter(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL, PIN_POWER_CTRL);
+    crp42602y_ctrl0->set_power_off_timeout_sec(300);
     crp42602y_ctrl0->register_callback_all(crp42602y_callback);
     crp42602y_counter0 = crp42602y_ctrl0->get_counter_inst();
 
@@ -425,6 +467,9 @@ int main()
     ssd1306_init(&disp, 128, 64, 0x3C, i2c0);
     ssd1306_clear(&disp);
     ssd1306_show(&disp);
+
+    // configParam
+    load_from_flash();
     disp_default_contents();
 
     // negative timeout means exact delay (rather than delay between callbacks)
@@ -436,8 +481,7 @@ int main()
     printf("CRP42602Y control started\r\n");
 
     // Core1 runs CRP62602Y process
-    multicore_reset_core1();
-    multicore_launch_core1(crp42602y_process);
+    exec_core1_crp42602y_process();
 
     // Core0 handles user interface
     button_event_t btnEvent;
@@ -509,6 +553,7 @@ int main()
             default:
                 break;
             }
+            crp42602y_ctrl0->extend_timeout_power_off();
         }
 
         // Process callback
@@ -583,6 +628,7 @@ int main()
                 prev_disp_time = 0;
                 break;
             case crp42602y_ctrl::ON_TIMEOUT_POWER_OFF:
+                store_to_flash();
                 printf("Power off\r\n");
                 ssd1306_clear(&disp);
                 ssd1306_show(&disp);
