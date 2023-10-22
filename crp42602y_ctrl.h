@@ -170,6 +170,11 @@ class crp42602y_ctrl {
     void set_power_off_timeout_sec(uint32_t sec);
 
     /**
+     * extend timeout for  power off
+     */
+    void extend_timeout_power_off();
+
+    /**
      * recover power from timeout
      */
     void recover_power_from_timeout();
@@ -229,6 +234,7 @@ class crp42602y_ctrl {
     uint32_t _gear_last_time;
     uint32_t _power_off_timeout_sec;
     bool _power_enable;
+    bool _extend_timeout;
     uint32_t _signal_filter[__NUM_FILTER_SIGNALS__];
 
     command_t _command_history_registered[NUM_COMMAND_HISTORY_REGISTERED];

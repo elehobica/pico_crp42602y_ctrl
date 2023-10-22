@@ -492,6 +492,7 @@ int main()
             default:
                 break;
             }
+            crp42602y_ctrl0->extend_timeout_power_off();
         }
 
         // Process callback

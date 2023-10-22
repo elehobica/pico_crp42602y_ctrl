@@ -59,6 +59,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _gear_last_time(0),
     _power_off_timeout_sec(DEFAULT_POWER_OFF_TIMEOUT_SEC),
     _power_enable(true),
+    _extend_timeout(false),
     _signal_filter{}
 {
     for (int i = 0; i < NUM_COMMAND_HISTORY_REGISTERED; i++) {
@@ -140,6 +141,11 @@ crp42602y_ctrl::reverse_mode_t crp42602y_ctrl::get_reverse_mode() const
 void crp42602y_ctrl::set_power_off_timeout_sec(uint32_t sec)
 {
     _power_off_timeout_sec = sec;
+}
+
+void crp42602y_ctrl::extend_timeout_power_off()
+{
+    _extend_timeout = true;
 }
 
 void crp42602y_ctrl::recover_power_from_timeout()
@@ -480,8 +486,9 @@ void crp42602y_ctrl::_process_set_eject_detection()
 void crp42602y_ctrl::_process_timeout_power_off(uint32_t now)
 {
     // Timeout power off (for mechanism)
-    if (_gear_is_in_func() || !_get_power_enable() || _pin_power_ctrl == 0) {
+    if (_gear_is_in_func() || !_get_power_enable() || _pin_power_ctrl == 0 || _extend_timeout) {
         _prev_func_time = now;
+        _extend_timeout = false;
     }
     if (_get_diff_time(_prev_func_time, now) >= _power_off_timeout_sec * 1000 && _get_power_enable()) {
         _set_power_enable(false);
