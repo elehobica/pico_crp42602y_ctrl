@@ -120,4 +120,5 @@ namespace ConfigParam
         uint32_t getBootCountFromFlash();
         void loadDefault();
     };
-}
+
+}  // namespace ConfigParam

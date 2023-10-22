@@ -12,8 +12,8 @@
 #include "UserFlash.h"
 #include "ConfigParam.h"
 
-using namespace ConfigParam;
-
+namespace ConfigParam
+{
 
 ConfigParamUser& ConfigParamUser::instance()
 {
@@ -357,3 +357,5 @@ void ConfigParamUser::setStr(uint32_t id, char *str)
     memset(ptr, 0, configParamItems[id].size);
     strncpy(ptr, str, configParamItems[id].size-1);
 }
+
+}  // namespace ConfigParam

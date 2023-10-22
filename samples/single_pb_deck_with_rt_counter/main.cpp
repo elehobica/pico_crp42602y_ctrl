@@ -205,6 +205,16 @@ static void rewind()
     crp42602y_ctrl0->send_command(crp42602y_ctrl::REW_COMMAND);
 }
 
+static void cue_fast_forward()
+{
+    crp42602y_ctrl0->send_command(crp42602y_ctrl::CUE_FF_COMMAND);
+}
+
+static void cue_rewind()
+{
+    crp42602y_ctrl0->send_command(crp42602y_ctrl::CUE_REW_COMMAND);
+}
+
 static void crp42602y_process()
 {
     _core1_is_running = true;
@@ -515,15 +525,23 @@ int main()
                 } else {
                     //printf("%s: 1\r\n", btnEvent.button_name);
                     if (strncmp(btnEvent.button_name, "center", 6) == 0) {
-                        if (crp42602y_ctrl0->is_playing() || crp42602y_ctrl0->is_cueing()) {
+                        if (crp42602y_ctrl0->is_playing() || crp42602y_ctrl0->is_ff_rew_ing()) {
                             stop();
                         } else {
                             play(true);
                         }
                     } else if (strncmp(btnEvent.button_name, "down", 4) == 0) {
-                        fast_forward();
+                        if (crp42602y_ctrl0->is_playing() || crp42602y_ctrl0->is_cueing()) {
+                            cue_fast_forward();
+                        } else {
+                            fast_forward();
+                        }
                     } else if (strncmp(btnEvent.button_name, "up", 2) == 0) {
-                        rewind();
+                        if (crp42602y_ctrl0->is_playing() || crp42602y_ctrl0->is_cueing()) {
+                            cue_rewind();
+                        } else {
+                            rewind();
+                        }
                     } else if (strncmp(btnEvent.button_name, "right", 5) == 0) {
                         inc_head_dir(_crp42602y_power && _has_cassette);
                     } else if (strncmp(btnEvent.button_name, "left", 4) == 0) {
@@ -656,7 +674,7 @@ int main()
                         uint32_t pos = disp_count/4 % 16;
                         _ssd1306_draw_play_arrow(&disp, crp42602y_ctrl0->get_head_dir_is_a(), pos);
                         disp_count++;
-                    } else if (crp42602y_ctrl0->is_cueing()) {
+                    } else if (crp42602y_ctrl0->is_ff_rew_ing() || crp42602y_ctrl0->is_cueing()) {
                         uint32_t pos = disp_count % 16;
                         _ssd1306_draw_cue_arrow(&disp, crp42602y_ctrl0->get_cue_dir_is_a(), pos);
                         disp_count++;
@@ -670,7 +688,7 @@ int main()
                 float counter_sec_f = crp42602y_counter0->get();
                 if (crp42602y_counter0->get_state() == crp42602y_counter::UNDETERMINED) {
                     ssd1306_draw_string(&disp, 6*6, 64-8, 1, "  --:--");
-                } else if ((!crp42602y_ctrl0->is_playing() && !crp42602y_ctrl0->is_cueing()) ||
+                } else if ((!crp42602y_ctrl0->is_playing() && !crp42602y_ctrl0->is_ff_rew_ing() && !crp42602y_ctrl0->is_cueing()) ||
                            crp42602y_ctrl0->is_playing() ||
                            (crp42602y_ctrl0->is_cueing() && crp42602y_counter0->get_state() != crp42602y_counter::PLAY_ONLY || (now_time / 125) % 8 > 0)) {
                             // blick counter during estimation under cueing
