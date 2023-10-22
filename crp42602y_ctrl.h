@@ -18,6 +18,7 @@ class crp42602y_ctrl {
         CMD_TYPE_NONE = 0,
         CMD_TYPE_STOP,
         CMD_TYPE_PLAY,
+        CMD_TYPE_FF_REW,
         CMD_TYPE_CUE,
         __NUM_CMD_TYPE__
     } command_type_t;
@@ -77,13 +78,15 @@ class crp42602y_ctrl {
     /**
      * Constatns - User commands
      */
-    static constexpr command_t STOP_COMMAND         = {CMD_TYPE_STOP, DIR_KEEP};
-    static constexpr command_t PLAY_COMMAND         = {CMD_TYPE_PLAY, DIR_KEEP};
-    static constexpr command_t PLAY_REVERSE_COMMAND = {CMD_TYPE_PLAY, DIR_REVERSE};
-    static constexpr command_t PLAY_A_COMMAND       = {CMD_TYPE_PLAY, DIR_FORWARD};
-    static constexpr command_t PLAY_B_COMMAND       = {CMD_TYPE_PLAY, DIR_BACKWARD};
-    static constexpr command_t FF_COMMAND           = {CMD_TYPE_CUE,  DIR_FORWARD};
-    static constexpr command_t REW_COMMAND          = {CMD_TYPE_CUE,  DIR_BACKWARD};
+    static constexpr command_t STOP_COMMAND         = {CMD_TYPE_STOP,   DIR_KEEP};
+    static constexpr command_t PLAY_COMMAND         = {CMD_TYPE_PLAY,   DIR_KEEP};
+    static constexpr command_t PLAY_REVERSE_COMMAND = {CMD_TYPE_PLAY,   DIR_REVERSE};
+    static constexpr command_t PLAY_A_COMMAND       = {CMD_TYPE_PLAY,   DIR_FORWARD};
+    static constexpr command_t PLAY_B_COMMAND       = {CMD_TYPE_PLAY,   DIR_BACKWARD};
+    static constexpr command_t CUE_FF_COMMAND       = {CMD_TYPE_CUE,    DIR_FORWARD};
+    static constexpr command_t CUE_REW_COMMAND      = {CMD_TYPE_CUE,    DIR_BACKWARD};
+    static constexpr command_t FF_COMMAND           = {CMD_TYPE_FF_REW, DIR_FORWARD};
+    static constexpr command_t REW_COMMAND          = {CMD_TYPE_FF_REW, DIR_BACKWARD};
 
     /**
      * crp42602y_ctrl class constructor
@@ -117,6 +120,13 @@ class crp42602y_ctrl {
      * @return true if playing
      */
     bool is_playing() const;
+
+    /**
+     * get is doing FF or REW
+     *
+     * @return true if doing FF or REW
+     */
+    bool is_ff_rew_ing() const;
 
     /**
      * get is cueing
@@ -223,6 +233,7 @@ class crp42602y_ctrl {
     bool _prev_has_cassette;
     reverse_mode_t _reverse_mode;
     bool _playing;
+    bool _ff_rew_ing;
     bool _cueing;
     uint32_t _prev_filter_time;
     uint32_t _prev_func_time;
@@ -336,7 +347,7 @@ class crp42602y_ctrl_with_counter : public crp42602y_ctrl {
     virtual void process_loop();
 
     protected:
-    bool _playing_for_wait_cue;
+    bool _playing_for_wait_ff_rew_cue;
 
     void (*_callbacks[__NUM_CALLBACK_TYPE_EXTEND__ - __NUM_CALLBACK_TYPE__])(const callback_type_t callback_type);
 
