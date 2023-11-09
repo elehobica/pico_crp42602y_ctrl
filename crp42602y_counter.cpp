@@ -187,13 +187,14 @@ void crp42602y_counter::_irq_callback()
         accum_time_us += -((int32_t) val) * PIO_COUNT_DIV;  // val is always negative value
     }
     bool is_playing = _ctrl->is_playing();
+    bool is_ff_rew_ing = _ctrl->is_ff_rew_ing();
     bool is_cueing = _ctrl->is_cueing();
     bool is_playing_internal = _ctrl->_is_playing_internal();
     bool gear_is_changing = _ctrl->_gear_is_changing();
     bool head_dir_is_a = _ctrl->get_head_dir_is_a();
     bool cue_dir_is_a = _ctrl->get_cue_dir_is_a();
     // Discard dummy rotations
-    if ((!is_playing && !is_cueing && !is_playing_internal) || gear_is_changing) {
+    if ((!is_playing && !is_ff_rew_ing && !is_cueing && !is_playing_internal) || gear_is_changing) {
         pio_sm_put_blocking(CRP42602Y_PIO, _sm, (uint32_t) -TIMEOUT_COUNT);
         _rot_count = 0;
         return;
@@ -230,7 +231,7 @@ void crp42602y_counter::_irq_callback()
             if (!queue_try_add(&_rotation_event_queue, &event)) {
                 _ctrl->_dispatch_callback((crp42602y_ctrl::callback_type_t) crp42602y_ctrl_with_counter::ON_COUNTER_FIFO_OVERFLOW);
             }
-        } else if (is_cueing) {
+        } else if (is_ff_rew_ing || is_cueing) {
             rotation_event_t event = {
                 accum_time_us + ADDITIONAL_US,
                 CUE,
