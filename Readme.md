@@ -52,7 +52,7 @@ The solenoid driver part should be needed at least
 * See ["Getting started with Raspberry Pi Pico"](https://datasheets.raspberrypi.org/pico/getting-started-with-pico.pdf)
 * Put "pico-sdk", "pico-examples" (, "pico-extras" and "pico-playground") on the same level with this project folder.
 * Build is confirmed in Developer Command Prompt for VS 2022 and Visual Studio Code on Windows enviroment
-* Confirmed with Pico SDK 1.4.0, cmake-3.27.2-windows-x86_64 and gcc-arm-none-eabi-10.3-2021.10-win32
+* Confirmed with Pico SDK 1.5.1, cmake-3.27.2-windows-x86_64 and gcc-arm-none-eabi-10.3-2021.10-win32
 ```
 > git clone -b master https://github.com/raspberrypi/pico-sdk.git
 > cd pico-sdk
@@ -72,8 +72,7 @@ The solenoid driver part should be needed at least
 > cd pico_crp42602y_ctrl
 > git submodule update -i
 > cd samples\xxxx
-> mkdir build
-> cd build
+> mkdir build && cd build
 > cmake -G "NMake Makefiles" ..
 > nmake
 ```
