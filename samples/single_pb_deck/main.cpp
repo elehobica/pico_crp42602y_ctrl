@@ -462,7 +462,7 @@ int main()
         }
 
         // Button I/F
-        if (buttons->get_button_event(&btnEvent)) {
+        if (buttons->get_button_event(btnEvent)) {
             switch (btnEvent.type) {
             case EVT_SINGLE:
                 if (btnEvent.repeat_count > 0) {
