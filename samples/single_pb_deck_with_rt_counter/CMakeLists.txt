@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 
 add_subdirectory(../.. crp42602y_ctrl)
-add_subdirectory(../lib/pico_buttons buttons)
+add_subdirectory(../lib/pico_buttons pico_buttons)
 add_subdirectory(../lib/pico-ssd1306 ssd1306)
 
 add_executable(${PROJECT_NAME}
@@ -29,7 +29,7 @@ target_link_libraries(${PROJECT_NAME}
     pico_multicore
     hardware_flash
     crp42602y_ctrl
-    buttons
+    pico_buttons
     ssd1306
 )
 
