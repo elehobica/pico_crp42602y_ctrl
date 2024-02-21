@@ -53,6 +53,10 @@
 | 32 | GP27 | GPIO Input | RESET |
 
 ## Schematic
+### Control circuit schematic
+[CRP62402Y_ctrl_with_buttons_schematic](../single_pb_deck/doc/CRP62402Y_ctrl_with_buttons_schematic.pdf)
+
+### EQ NR board (customized)
 [EQ_NR_Schematic](../single_pb_deck/doc/TA7668BP_CXA1332M_board_customized.pdf)
 
 ## Button operation
