@@ -44,9 +44,15 @@ Control library for CRP42602Y auto-reverse cassette tape deck mechanism
 Pin assignments are configurable
 
 ## Schematic
-The solenoid driver part should be needed at least
-
+### Control circuit schematic
 [CRP62402Y_ctrl_schematic](doc/CRP62402Y_ctrl_schematic.pdf)
+
+The solenoid driver part is needed at least.
+
+### Head circuit (for reference)
+[CRP62402Y_head_circuit](doc/CRP42602Y_head_circuit.png)
+
+Polarity information is relative, however, L/R polarities should be aligned.
 
 ## How to build
 * See ["Getting started with Raspberry Pi Pico"](https://datasheets.raspberrypi.org/pico/getting-started-with-pico.pdf)
