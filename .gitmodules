@@ -1,6 +1,6 @@
 [submodule "pico_buttons"]
 	path = samples/lib/pico_buttons
-	url = git@github.com:elehobica/pico_buttons.git
+	url = https://github.com/elehobica/pico_buttons.git
 [submodule "samples/lib/pico-ssd1306/src"]
 	path = samples/lib/pico-ssd1306/src
 	url = https://github.com/daschr/pico-ssd1306.git
