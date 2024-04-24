@@ -19,7 +19,7 @@
 extern "C" {
 #include "ssd1306.h"
 }
-#include "configParam.h"
+#include "ConfigParam.h"
 
 static constexpr uint PIN_LED = PICO_DEFAULT_LED_PIN;
 
