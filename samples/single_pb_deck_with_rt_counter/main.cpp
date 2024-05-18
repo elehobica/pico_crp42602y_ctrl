@@ -170,6 +170,12 @@ static void _ssd1306_draw_cue_arrow(ssd1306_t* p, bool right_dir, uint32_t pos)
     }
 }
 
+static void _ssd1306_show(ssd1306_t *p)
+{
+    if (!_crp42602y_power) { return; }
+    ssd1306_show(p);
+}
+
 static bool periodic_func(repeating_timer_t *rt)
 {
     if (buttons != nullptr) {
@@ -295,7 +301,7 @@ static void inc_reverse_mode(bool inc = true)
     }
     _ssd1306_clear_square(&disp, 0, 64-16, 16, 16);
     ssd1306_draw_char_with_font(&disp, 0, 64-16, 1, font_reverse_mode, (char) reverse_mode);
-    ssd1306_show(&disp);
+    _ssd1306_show(&disp);
 }
 
 static void inc_eq(bool inc = true)
@@ -335,7 +341,7 @@ static void inc_eq(bool inc = true)
         ssd1306_draw_string(&disp, sx, sy, 1, "120 uS");
         break;
     }
-    ssd1306_show(&disp);
+    _ssd1306_show(&disp);
 }
 
 static void inc_nr(bool inc = true)
@@ -381,7 +387,7 @@ static void inc_nr(bool inc = true)
         ssd1306_draw_string(&disp, sx, sy, 1, "NR OFF");
         break;
     }
-    ssd1306_show(&disp);
+    _ssd1306_show(&disp);
 }
 
 static void reset_counter()
@@ -403,7 +409,7 @@ static void disp_default_contents()
 
     _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
     ssd1306_draw_string(&disp, 0, 0, 1, "STOP");
-    ssd1306_show(&disp);
+    _ssd1306_show(&disp);
 
     inc_head_dir(false);
     inc_reverse_mode(false);
@@ -476,7 +482,7 @@ int main()
     disp.external_vcc = false;
     ssd1306_init(&disp, 128, 64, 0x3C, i2c0);
     ssd1306_clear(&disp);
-    ssd1306_show(&disp);
+    _ssd1306_show(&disp);
 
     // configParam
     load_from_flash();
@@ -605,7 +611,7 @@ int main()
                 printf("Stop\r\n");
                 _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
                 ssd1306_draw_string(&disp, 0, 0, 1, "STOP");
-                ssd1306_show(&disp);
+                _ssd1306_show(&disp);
                 prev_disp_time = 0;
                 break;
             case crp42602y_ctrl::ON_PLAY:
@@ -617,7 +623,7 @@ int main()
                     printf("Play B\r\n");
                     ssd1306_draw_string(&disp, 0, 0, 1, "PLAY B");
                 }
-                ssd1306_show(&disp);
+                _ssd1306_show(&disp);
                 prev_disp_time = 0;
                 break;
             case crp42602y_ctrl::ON_CUE:
@@ -629,7 +635,7 @@ int main()
                     printf("REW\r\n");
                     ssd1306_draw_string(&disp, 0, 0, 1, "REW");
                 }
-                ssd1306_show(&disp);
+                _ssd1306_show(&disp);
                 prev_disp_time = 0;
                 break;
             case crp42602y_ctrl::ON_REVERSE:
@@ -642,14 +648,14 @@ int main()
                     printf("Play B\r\n");
                     ssd1306_draw_string(&disp, 0, 0, 1, "Play B");
                 }
-                ssd1306_show(&disp);
+                _ssd1306_show(&disp);
                 prev_disp_time = 0;
                 break;
             case crp42602y_ctrl::ON_TIMEOUT_POWER_OFF:
                 store_to_flash();
                 printf("Power off\r\n");
                 ssd1306_clear(&disp);
-                ssd1306_show(&disp);
+                _ssd1306_show(&disp);
                 _crp42602y_power = false;
                 prev_disp_time = 0;
                 break;
@@ -702,7 +708,7 @@ int main()
                     }
                     ssd1306_draw_string(&disp, 6*6, 64-8, 1, str);
                 }
-                ssd1306_show(&disp);
+                _ssd1306_show(&disp);
             } else {
                 disp_count = 0;
             }
