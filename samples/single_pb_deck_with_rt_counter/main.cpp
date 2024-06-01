@@ -9,17 +9,18 @@
 #include <cstring>
 #include <cmath>
 
-#include "pico/stdlib.h"
+#include "pico/flash.h"
 #include "pico/multicore.h"
+#include "pico/stdlib.h"
 #include "pico/util/queue.h"
 
 #include "Buttons.h"
+#include "ConfigParam.h"
 #include "crp42602y_ctrl.h"
 #include "eq_nr.h"
 extern "C" {
 #include "ssd1306.h"
 }
-#include "ConfigParam.h"
 
 static constexpr uint PIN_LED = PICO_DEFAULT_LED_PIN;
 
@@ -223,6 +224,7 @@ static void cue_rewind()
 
 static void crp42602y_process()
 {
+    flash_safe_execute_core_init();  // no access to flash on core1
     _core1_is_running = true;
     stop();
     while (_core1_exec) {
@@ -419,20 +421,27 @@ static void disp_default_contents()
 
 static void load_from_flash()
 {
-    eq_nr0->set_eq_type((eq_nr::eq_type_t) GET_CFG_EQ_TYPE);
-    eq_nr0->set_nr_type((eq_nr::nr_type_t) GET_CFG_NR_TYPE);
-    crp42602y_ctrl0->set_reverse_mode((crp42602y_ctrl::reverse_mode_t) GET_CFG_REVERSE_MODE);
+    ConfigParam& cfgParam = ConfigParam::instance();
+    cfgParam.initialize();
+    eq_nr0->set_eq_type(static_cast<eq_nr::eq_type_t>(cfgParam.P_CFG_EQ_TYPE.get()));
+    eq_nr0->set_nr_type(static_cast<eq_nr::nr_type_t>(cfgParam.P_CFG_NR_TYPE.get()));
+    crp42602y_ctrl0->set_reverse_mode(static_cast<crp42602y_ctrl::reverse_mode_t>(cfgParam.P_CFG_REVERSE_MODE.get()));
 }
 
 static void store_to_flash()
 {
-    configParam.setU32(ConfigParam::ParamID_t::CFG_EQ_TYPE, (uint32_t) eq_nr0->get_eq_type());
-    configParam.setU32(ConfigParam::ParamID_t::CFG_NR_TYPE, (uint32_t) eq_nr0->get_nr_type());
-    configParam.setU32(ConfigParam::ParamID_t::CFG_REVERSE_MODE, (uint32_t) crp42602y_ctrl0->get_reverse_mode());
+    ConfigParam& cfgParam = ConfigParam::instance();
+    cfgParam.P_CFG_EQ_TYPE.set(static_cast<uint32_t>(eq_nr0->get_eq_type()));
+    cfgParam.P_CFG_NR_TYPE.set(static_cast<uint32_t>(eq_nr0->get_nr_type()));
+    cfgParam.P_CFG_REVERSE_MODE.set(static_cast<uint32_t>(crp42602y_ctrl0->get_reverse_mode()));
 
     // running core1 can let flash programming crash
     terminate_core1_crp42602y_process();
-    configParam.finalize();
+    if (cfgParam.finalize()) {
+        printf("store ConfigParam to flash successfully\r\n");
+    } else {
+        printf("ERROR: failed to store ConfigParam to flash\r\n");
+    }
     exec_core1_crp42602y_process();
 }
 

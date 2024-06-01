@@ -14,22 +14,22 @@ pico_sdk_init()
 
 add_subdirectory(../.. crp42602y_ctrl)
 add_subdirectory(../lib/pico_buttons pico_buttons)
+add_subdirectory(../lib/pico_flash_param pico_flash_param)
 add_subdirectory(../lib/pico-ssd1306 ssd1306)
 
 add_executable(${PROJECT_NAME}
     main.cpp
     eq_nr.cpp
-    UserFlash.cpp
-    ConfigParam.cpp
 )
 
 # pull in common dependencies
 target_link_libraries(${PROJECT_NAME}
-    pico_stdlib
-    pico_multicore
     hardware_flash
+    pico_multicore
+    pico_stdlib
     crp42602y_ctrl
     pico_buttons
+    pico_flash_param
     ssd1306
 )
 

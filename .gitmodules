@@ -4,3 +4,6 @@
 [submodule "samples/lib/pico-ssd1306/src"]
 	path = samples/lib/pico-ssd1306/src
 	url = https://github.com/daschr/pico-ssd1306.git
+[submodule "samples/lib/pico_flash_param"]
+	path = samples/lib/pico_flash_param
+	url = https://github.com/elehobica/pico_flash_param.git
