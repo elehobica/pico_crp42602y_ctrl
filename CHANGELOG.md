@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 * Add the schematics for EQ and NR control
 ### Changed
 * Support pico-sdk 1.5.1 (previously 1.4.0)
+* Change library name to pico_crp42602y_ctrl (previously crp42602y_ctrl)
 
 ## [0.7.0] - 2023-08-28
 * Initial release

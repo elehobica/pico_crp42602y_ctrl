@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
-add_subdirectory(../.. crp42602y_ctrl)
+add_subdirectory(../.. pico_crp42602y_ctrl)
 
 add_executable(${PROJECT_NAME}
     main.cpp
@@ -20,9 +20,9 @@ add_executable(${PROJECT_NAME}
 
 # pull in common dependencies
 target_link_libraries(${PROJECT_NAME}
-    pico_stdlib
     pico_multicore
-    crp42602y_ctrl
+    pico_stdlib
+    pico_crp42602y_ctrl
 )
 
 # create map/bin/hex file etc.
