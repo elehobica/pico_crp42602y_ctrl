@@ -56,10 +56,9 @@ Polarity information is relative, however, L/R polarities should be aligned.
 
 ## How to build
 * See ["Getting started with Raspberry Pi Pico"](https://datasheets.raspberrypi.org/pico/getting-started-with-pico.pdf)
-* Put "pico-sdk", "pico-examples", "pico-extras" (and "pico-playground") on the same level with this project folder.
-* Set environmental variables for PICO_SDK_PATH, PICO_EXTRAS_PATH
-* Build is confirmed in Developer Command Prompt for VS 2022 and Visual Studio Code on Windows enviroment
-* Confirmed with Pico SDK 1.5.1, cmake-3.27.2-windows-x86_64 and gcc-arm-none-eabi-10.3-2021.10-win32
+* Put "pico-sdk", "pico-examples" and "pico-extras" on the same level with this project folder.
+* Set environmental variables for PICO_SDK_PATH, PICO_EXTRAS_PATH and PICO_EXAMPLES_PATH
+* Confirmed with Pico SDK 1.5.1
 ```
 > git clone -b 1.5.1 https://github.com/raspberrypi/pico-sdk.git
 > cd pico-sdk
@@ -70,14 +69,29 @@ Polarity information is relative, however, L/R polarities should be aligned.
 > git clone -b sdk-1.5.1 https://github.com/raspberrypi/pico-extras.git
 > 
 > git clone -b main https://github.com/elehobica/pico_crp42602y_ctrl.git
-```
+> cd pico_crp42602y_ctrl
+> git submodule update -i
+> cd ..
+### Windows
+* Build is confirmed with Developer Command Prompt for VS 2022 and Visual Studio Code on Windows environment
+* Confirmed with cmake-3.27.2-windows-x86_64 and gcc-arm-none-eabi-10.3-2021.10-win32
 * Lanuch "Developer Command Prompt for VS 2022"
 ```
 > cd pico_crp42602y_ctrl
-> git submodule update -i
 > cd samples\xxxx
 > mkdir build && cd build
 > cmake -G "NMake Makefiles" ..
 > nmake
 ```
 * Put "xxxx.uf2" on RPI-RP2 drive
+### Linux
+* Build is confirmed with [rp2040-dev-docker:sdk-1.5.1-1.0.1]( https://hub.docker.com/r/elehobica/rp2040-dev-docker) 
+* Confirmed with cmake-3.22.1 and arm-none-eabi-gcc (15:10.3-2021.07-4) 10.3.1
+```
+$ cd pico_crp42602y_ctrl
+$ cd samples/xxxx
+$ mkdir build && cd build
+$ cmake ..
+$ make -j4
+```
+* Download "xxxx.uf2" on RPI-RP2 drive
