@@ -18,7 +18,7 @@ Control library for CRP42602Y auto-reverse cassette tape deck mechanism
 * Need additional circuit to drive solenoid
 
 ## Pin Assignment & Connection
-### CRP42602 connector
+### CRP42602Y connector
 | Pin # | Name | Function | Connection |
 ----|----|----|----
 | 1 | REC_B_SW | Rec. protection switch of B side<br>(0: not protected, 1: protected) | to Pico GPIO input |
