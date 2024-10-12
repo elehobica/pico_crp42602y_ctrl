@@ -5,8 +5,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### Added
+* Add EQ mute control for single_pb_deck* sample project
 ### Changed
 * Support pico-sdk 2.0.0
+* Revised TA7668BP_CXA1332M_board_customized schematic to improve low frequency gain
 
 ## [0.8.0] - 2024-06-02
 ### Added

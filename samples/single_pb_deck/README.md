@@ -29,6 +29,7 @@
 | 13 | GND | GND | GND |
 | 14 | GP10 | GPIO Output | to NR_CTRL0 (0: Dolby B, 1: Dolby C) |
 | 15 | GP11 | GPIO Output | to NR_CTRL1 (0: NR ON, 1: NR OFF) |
+| 19 | GP14 | GPIO Output | to EQ_MUTE (0: Mute OFF, 1: Mute ON) |
 
 ### SSD1306
 | Pico Pin # | Pin Name | Function | Connection |

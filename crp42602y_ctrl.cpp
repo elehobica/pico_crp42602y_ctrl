@@ -524,9 +524,8 @@ void crp42602y_ctrl::_process_command()
                 _cueing = false;
                 if (command.dir == DIR_REVERSE) {
                     _dispatch_callback(ON_REVERSE);
-                } else {
-                    _dispatch_callback(ON_PLAY);
                 }
+                _dispatch_callback(ON_PLAY);
             }
             break;
         case CMD_TYPE_FF_REW:  // fallthrough
@@ -669,9 +668,8 @@ void crp42602y_ctrl_with_counter::_process_command()
                 if (command.dir == DIR_REVERSE) {
                     _counter.reset();
                     _dispatch_callback(ON_REVERSE);
-                } else {
-                    _dispatch_callback(ON_PLAY);
                 }
+                _dispatch_callback(ON_PLAY);
             }
             queue_remove_blocking(&_command_queue, &command);
             break;

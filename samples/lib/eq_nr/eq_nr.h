@@ -22,18 +22,22 @@ class eq_nr {
         __NUM_NR_TYPES__
     } nr_type_t;
 
-    eq_nr(uint pin_eq_ctrl, uint pin_nr_ctrl0, uint pin_nr_ctrl1);
+    eq_nr(uint pin_eq_ctrl, uint pin_nr_ctrl0, uint pin_nr_ctrl1, uint pin_eq_mute = 0);
     virtual ~eq_nr() {}
     void set_eq_type(eq_type_t type);
     eq_type_t get_eq_type() const;
     void set_nr_type(nr_type_t type);
     nr_type_t get_nr_type() const;
+    void set_mute(bool flag);
+    bool get_mute() const;
 
     private:
     uint _pin_eq_ctrl;
     uint _pin_nr_ctrl0;
     uint _pin_nr_ctrl1;
+    uint _pin_eq_mute;
     eq_type_t _eq_type;
     nr_type_t _nr_type;
+    bool _is_muted;
 };
 

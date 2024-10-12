@@ -6,8 +6,8 @@
 
 #include "eq_nr.h"
 
-eq_nr::eq_nr(uint pin_eq_ctrl, uint pin_nr_ctrl0, uint pin_nr_ctrl1) :
-    _pin_eq_ctrl(pin_eq_ctrl), _pin_nr_ctrl0(pin_nr_ctrl0), _pin_nr_ctrl1(pin_nr_ctrl1),
+eq_nr::eq_nr(uint pin_eq_ctrl, uint pin_nr_ctrl0, uint pin_nr_ctrl1, uint pin_eq_mute) :
+    _pin_eq_ctrl(pin_eq_ctrl), _pin_nr_ctrl0(pin_nr_ctrl0), _pin_nr_ctrl1(pin_nr_ctrl1), _pin_eq_mute(pin_eq_mute),
     _eq_type(EQ_120US), _nr_type(NR_OFF)
 {
     gpio_init(_pin_eq_ctrl);
@@ -19,6 +19,12 @@ eq_nr::eq_nr(uint pin_eq_ctrl, uint pin_nr_ctrl0, uint pin_nr_ctrl1) :
     set_nr_type(_nr_type);
     gpio_set_dir(_pin_nr_ctrl0, GPIO_OUT);
     gpio_set_dir(_pin_nr_ctrl1, GPIO_OUT);
+
+    if (_pin_eq_mute > 0) {
+      gpio_init(_pin_eq_mute);
+      set_mute(true);
+      gpio_set_dir(_pin_eq_mute, GPIO_OUT);
+    }
 }
 
 void eq_nr::set_eq_type(eq_type_t type)
@@ -58,4 +64,17 @@ void eq_nr::set_nr_type(nr_type_t type)
 eq_nr::nr_type_t eq_nr::get_nr_type() const
 {
     return _nr_type;
+}
+
+void eq_nr::set_mute(bool flag)
+{
+    _is_muted = flag;
+    if (_pin_eq_mute > 0) {
+        gpio_put(_pin_eq_mute, flag);
+    }
+}
+
+bool eq_nr::get_mute() const
+{
+    return _is_muted;
 }

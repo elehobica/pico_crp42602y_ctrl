@@ -15,10 +15,10 @@ pico_sdk_init()
 add_subdirectory(../.. pico_crp42602y_ctrl)
 add_subdirectory(../lib/pico_buttons pico_buttons)
 add_subdirectory(../lib/pico-ssd1306 ssd1306)
+add_subdirectory(../lib/eq_nr eq_nr)
 
 add_executable(${PROJECT_NAME}
     main.cpp
-    eq_nr.cpp
 )
 
 # pull in common dependencies
@@ -28,6 +28,7 @@ target_link_libraries(${PROJECT_NAME}
     pico_buttons
     pico_crp42602y_ctrl
     ssd1306
+    eq_nr
 )
 
 # create map/bin/hex file etc.

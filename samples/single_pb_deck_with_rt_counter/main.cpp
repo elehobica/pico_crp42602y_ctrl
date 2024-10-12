@@ -35,6 +35,7 @@ static constexpr uint PIN_POWER_CTRL      = 6;
 static constexpr uint PIN_EQ_CTRL  = 7;
 static constexpr uint PIN_NR_CTRL0 = 10;
 static constexpr uint PIN_NR_CTRL1 = 11;
+static constexpr uint PIN_EQ_MUTE  = 14;
 
 // Buttons pins
 static constexpr uint PIN_UP_BUTTON     = 18;
@@ -485,7 +486,7 @@ int main()
     crp42602y_counter0 = crp42602y_ctrl0->get_counter_inst();
 
     // EQ_NR
-    eq_nr0 = new eq_nr(PIN_EQ_CTRL, PIN_NR_CTRL0, PIN_NR_CTRL1);
+    eq_nr0 = new eq_nr(PIN_EQ_CTRL, PIN_NR_CTRL0, PIN_NR_CTRL1, PIN_EQ_MUTE);
 
     // SSD1306
     disp.external_vcc = false;
@@ -622,6 +623,7 @@ int main()
                 ssd1306_draw_string(&disp, 0, 0, 1, "STOP");
                 _ssd1306_show(&disp);
                 prev_disp_time = 0;
+                eq_nr0->set_mute(true);
                 break;
             case crp42602y_ctrl::ON_PLAY:
                 _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
@@ -634,6 +636,7 @@ int main()
                 }
                 _ssd1306_show(&disp);
                 prev_disp_time = 0;
+                eq_nr0->set_mute(false);
                 break;
             case crp42602y_ctrl::ON_CUE:
                 _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
@@ -646,6 +649,7 @@ int main()
                 }
                 _ssd1306_show(&disp);
                 prev_disp_time = 0;
+                eq_nr0->set_mute(true);
                 break;
             case crp42602y_ctrl::ON_REVERSE:
                 printf("Reversed\r\n");
