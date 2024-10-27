@@ -174,6 +174,8 @@ bool crp42602y_ctrl::send_command(const command_t& command)
             command_t remove_command;
             queue_remove_blocking(&_command_queue, &remove_command);
         }
+    } else if (!_has_cassette) {
+        return false;
     }
 
     if (queue_try_add(&_command_queue, &command)) {

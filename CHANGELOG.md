@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 * Support pico-sdk 2.0.0
 * Revised TA7668BP_CXA1332M_board_customized schematic to improve low frequency gain
+### Fixed
+* Ignore commands except for STOP when no cassette
 
 ## [0.8.0] - 2024-06-02
 ### Added
