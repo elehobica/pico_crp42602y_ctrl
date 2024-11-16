@@ -41,6 +41,7 @@ class crp42602y_ctrl {
 
     // Constants
     static constexpr uint32_t DEFAULT_POWER_OFF_TIMEOUT_SEC = 300;
+    static constexpr uint32_t WAIT_MOTOR_STABLE_MS = 500;
     static constexpr uint     COMMAND_QUEUE_LENGTH = 6;
     static constexpr uint     CALLBACK_QUEUE_LENGTH = 4;
     static constexpr uint32_t SIGNAL_FILTER_MS = 100;
@@ -95,7 +96,7 @@ class crp42602y_ctrl {
      * @param[in] pin_gear_status_sw  GPIO Input: Gear function status switch
      * @param[in] pin_rotation_sens   GPIO Input: Rotation sensor
      * @param[in] pin_solenoid_ctrl   GPIO Output: This needs additional circuit to control solenoid
-     * @param[in] pin_power_enable    GPIO Output: Power control (for timeout disable) (optional: 0 for not use)
+     * @param[in] pin_power_ctrl      GPIO Output: Power control (for timeout disable) (optional: 0 for not use)
      * @param[in] pin_rec_a_sw        GPIO Input: Rec switch for A (optional: 0 for not use)
      * @param[in] pin_rec_b_sw        GPIO Input: Rec switch for B (optional: 0 for not use)
      */
@@ -104,7 +105,7 @@ class crp42602y_ctrl {
         const uint pin_gear_status_sw,
         const uint pin_rotation_sens,
         const uint pin_solenoid_ctrl,
-        const uint pin_power_enable = 0,
+        const uint pin_power_ctrl = 0,
         const uint pin_rec_a_sw = 0,
         const uint pin_rec_b_sw = 0
     );
@@ -311,7 +312,7 @@ class crp42602y_ctrl_with_counter : public crp42602y_ctrl {
         const uint pin_gear_status_sw,
         const uint pin_rotation_sens,
         const uint pin_solenoid_ctrl,
-        const uint pin_power_enable = 0,
+        const uint pin_power_ctrl = 0,
         const uint pin_rec_a_sw = 0,
         const uint pin_rec_b_sw = 0
     );

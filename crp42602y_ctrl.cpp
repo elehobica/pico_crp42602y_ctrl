@@ -59,7 +59,7 @@ crp42602y_ctrl::crp42602y_ctrl(
     _gear_changing(false),
     _gear_last_time(0),
     _power_off_timeout_sec(DEFAULT_POWER_OFF_TIMEOUT_SEC),
-    _power_enable(true),
+    _power_enable(false),
     _extend_timeout(false),
     _signal_filter{}
 {
@@ -89,7 +89,7 @@ crp42602y_ctrl::crp42602y_ctrl(
 
     if (_pin_power_ctrl != 0) {
         gpio_init(_pin_power_ctrl);
-        _set_power_enable(true); // set default before setting output mode
+        _set_power_enable(false); // set default before setting output mode
         gpio_set_dir(_pin_power_ctrl, GPIO_OUT);
     }
 }
@@ -261,7 +261,7 @@ bool crp42602y_ctrl::_gear_is_changing() const
 
 bool crp42602y_ctrl::_gear_is_in_func() const
 {
-    return !gpio_get(_pin_gear_status_sw) && _power_enable;
+    return !gpio_get(_pin_gear_status_sw);
 }
 
 void crp42602y_ctrl::_gear_store_status(const bool head_dir_is_a, const bool lift_head, const bool reel_fwd)
@@ -280,12 +280,10 @@ bool crp42602y_ctrl::_gear_is_equal_status(const bool head_dir_is_a, const bool 
 
 bool crp42602y_ctrl::_gear_func_sequence(const bool head_dir_is_a, const bool lift_head, const bool reel_fwd)
 {
-    constexpr uint32_t tWaitMotorStable = 500;
-
     // recover power if disabled
     if (!_power_enable) {
         recover_power_from_timeout();
-        sleep_ms(tWaitMotorStable);
+        sleep_ms(WAIT_MOTOR_STABLE_MS);
     }
 
     _gear_last_time = _millis();
@@ -328,6 +326,12 @@ bool crp42602y_ctrl::_gear_func_sequence(const bool head_dir_is_a, const bool li
 
 bool crp42602y_ctrl::_gear_return_sequence()
 {
+    // recover power if disabled
+    if (!_power_enable) {
+        recover_power_from_timeout();
+        sleep_ms(WAIT_MOTOR_STABLE_MS);
+    }
+
     _gear_last_time = _millis();
 
     // Return sequence has (360 - 190) degree of function gear,

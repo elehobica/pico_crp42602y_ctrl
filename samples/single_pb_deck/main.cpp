@@ -244,7 +244,6 @@ bool crp42602y_get_callback(crp42602y_ctrl::callback_type_t* callback_type)
 
 void inc_head_dir(bool inc = true)
 {
-    crp42602y_ctrl0->recover_power_from_timeout();
     bool head_dir_is_a = crp42602y_ctrl0->get_head_dir_is_a();
     if (inc) {
         head_dir_is_a = !head_dir_is_a;
@@ -255,7 +254,6 @@ void inc_head_dir(bool inc = true)
 
 void inc_reverse_mode(bool inc = true)
 {
-    crp42602y_ctrl0->recover_power_from_timeout();
     crp42602y_ctrl::reverse_mode_t reverse_mode = crp42602y_ctrl0->get_reverse_mode();
     if (inc) {
         reverse_mode = (crp42602y_ctrl::reverse_mode_t) ((int) reverse_mode + 1);
@@ -284,7 +282,6 @@ void inc_reverse_mode(bool inc = true)
 
 void inc_eq(bool inc = true)
 {
-    crp42602y_ctrl0->recover_power_from_timeout();
     eq_nr::eq_type_t eq_type = eq_nr0->get_eq_type();
     if (inc) {
         eq_type = (eq_nr::eq_type_t) ((int) eq_type + 1);
@@ -324,7 +321,6 @@ void inc_eq(bool inc = true)
 
 void inc_nr(bool inc = true)
 {
-    crp42602y_ctrl0->recover_power_from_timeout();
     eq_nr::nr_type_t nr_type = eq_nr0->get_nr_type();
     if (inc) {
         nr_type = (eq_nr::nr_type_t) ((int) nr_type + 1);
