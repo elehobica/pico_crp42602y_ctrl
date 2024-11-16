@@ -198,6 +198,13 @@ class crp42602y_ctrl {
     bool send_command(const command_t& command);
 
     /**
+     * get counter instance
+     *
+     * @return crp42602y_counter instance
+     */
+    virtual crp42602y_counter* get_counter_inst();
+
+    /**
      * register callback for each
      *
      * @param[in] callback_type callback type (see callback_type_t)
@@ -324,10 +331,9 @@ class crp42602y_ctrl_with_counter : public crp42602y_ctrl {
 
     /**
      * get counter instance
-     *
-     * @return crp42602y_counter instance
+     * @copydoc crp42602y_ctrl::get_counter_inst
      */
-    crp42602y_counter* get_counter_inst();
+    virtual crp42602y_counter* get_counter_inst();
 
     /**
      * register callback for each

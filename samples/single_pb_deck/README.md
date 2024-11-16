@@ -4,6 +4,10 @@
 * support single deck (play back only)
 * control by 5 Way Switch + 2 Buttons and serial interface
 * support EQ and NR control
+* support real-time counter (if enabled by GP28)
+
+### Notes about real-time counter
+* Not to lose time information, FF or REW command without previous Play command makes the insersion of Play command in short time
 
 ## Supported Board and Peripheral Devices
 * Raspberry Pi Pico (rp2040)
@@ -12,7 +16,7 @@
 * SSD1306 128x64 OLED display
 
 ## Pin Assignment & Connection
-### Raspberry Pi Pico
+### CRP42602Y circuit
 | Pico Pin # | GPIO | Function | Connection |
 ----|----|----|----
 | 4 | GP2 | GPIO Output | to SOLENOID_CTRL of additional circuit (0: release, 1: pull) |
@@ -21,6 +25,11 @@
 | 7 | GP5 | GPIO Input | ROTATION_SENS from CRP42602Y pin 2 |
 | 8 | GND | GND | GND |
 | 9 | GP6 | GPIO Output | to POWER_CTRL (0: disable, 1: enable) |
+
+### Real-time counter
+| Pico Pin # | Pin Name | Function | Description |
+----|----|----|----
+| 34 | GP28 | GPIO Input | REALTIME_COUNTER_SEL (Open: OFF, L: ON) |
 
 ### EQ and NR control with additional circuit
 | Pico Pin # | GPIO | Function | Connection |
@@ -63,7 +72,7 @@
 * down: fast forward
 * up: rewind
 * right: direction A/B
-* left: reverse mode
+* left: reverse mode (single push), reset counter (long push)
 * reset: EQ select
 * set: NR select
 
@@ -77,3 +86,4 @@
 * 'v': reverse mode
 * 'e': EQ select
 * 'n': NR select
+* 'c': reset counter

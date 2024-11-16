@@ -190,6 +190,11 @@ bool crp42602y_ctrl::send_command(const command_t& command)
     }
 }
 
+crp42602y_counter* crp42602y_ctrl::get_counter_inst()
+{
+    return nullptr;
+}
+
 void crp42602y_ctrl::register_callback(const callback_type_t callback_type, void (*func)(const callback_type_t callback_type))
 {
     _callbacks[callback_type] = func;

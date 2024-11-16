@@ -6,10 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 ### Added
-* Add EQ mute control for single_pb_deck* sample project
+* Add EQ mute control for single_pb_deck sample project
 ### Changed
 * Support pico-sdk 2.0.0
-* Revised TA7668BP_CXA1332M_board_customized schematic to improve low frequency gain
+* Revise TA7668BP_CXA1332M_board_customized schematic to improve low frequency gain
+* Set motor off at initial without cassette
+* Integrate single_pb_deck_with_rt_counter project into single_pb_deck project
 ### Fixed
 * Ignore commands except for STOP when no cassette
 
