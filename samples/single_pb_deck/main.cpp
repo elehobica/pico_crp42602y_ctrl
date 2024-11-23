@@ -61,12 +61,14 @@ static uint32_t _count = 0;
 
 static bool _has_cassette = false;
 static bool _crp42602y_power = true;
+static bool _flash_stored = false;
 static queue_t _callback_queue;
 static constexpr int CALLBACK_QUEUE_LENGTH = 16;
 
 static volatile bool _core1_exec = false;
 static volatile bool _core1_is_running = false;
 
+// Note: 5 Way switch is supposed to be mounted as -90 degree rotated. (UP switch works as left direction)
 static button_t btns_5way_tactile_plus2[] = {
     {"reset",  PIN_RESET_BUTTON,  &Buttons::DEFAULT_BUTTON_SINGLE_CONFIG},
     {"set",    PIN_SET_BUTTON,    &Buttons::DEFAULT_BUTTON_SINGLE_CONFIG},
@@ -438,6 +440,7 @@ static void store_to_flash()
     terminate_core1_crp42602y_process();
     if (cfgParam.finalize()) {
         printf("store ConfigParam to flash successfully\r\n");
+        _flash_stored = true;
     } else {
         printf("ERROR: failed to store ConfigParam to flash\r\n");
     }
@@ -587,6 +590,10 @@ int main()
                 //printf("%s: Long\r\n", btnEvent.button_name);
                 if (strncmp(btnEvent.button_name, "left", 4) == 0) {
                     reset_counter();
+                } else if (strncmp(btnEvent.button_name, "right", 5) == 0) {
+                    if (!_flash_stored && !crp42602y_ctrl0->is_operating()) {
+                        store_to_flash();
+                    }
                 }
                 break;
             case EVT_LONG_LONG:
@@ -693,7 +700,13 @@ int main()
             if (_crp42602y_power) {
                 // Image Display
                 _ssd1306_clear_square(&disp, 0, 16, 128, 8*4);
-                if (!_has_cassette) {
+                if (_flash_stored) {
+                    ssd1306_draw_string(&disp, 24, 32-4, 1, "SETTING SAVED");
+                    if (disp_count++ > 40) {
+                        _flash_stored = false;
+                        disp_count = 0;
+                    }
+                } else if (!_has_cassette) {
                     ssd1306_draw_string(&disp, 32, 32-4, 1, "NO CASSETTE");
                     disp_count = 0;
                 } else {

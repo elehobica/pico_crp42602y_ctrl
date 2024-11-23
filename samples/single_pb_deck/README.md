@@ -68,13 +68,14 @@
 [EQ_NR_Schematic](doc/TA7668BP_CXA1332M_board_customized.pdf)
 
 ## Button operation
-* center: play/stop (single click), reverse play (double click)
-* down: fast forward
-* up: rewind
-* right: direction A/B
-* left: reverse mode (single push), reset counter (long push)
-* reset: EQ select
-* set: NR select
+Note: 5 Way switch is supposed to be mounted as -90 degree rotated. (UP switch works as left direction)
+* CENTER: play/stop (single click), reverse play (double click)
+* DOWN (right): fast forward
+* UP (left): rewind
+* RIGHT (up): direction A/B (single push), save flush (long push)
+* LEFT (down): reverse mode (single push), reset counter (long push)
+* RESET: EQ select
+* SET: NR select
 
 ## Serial interface operation
 * 's': stop
