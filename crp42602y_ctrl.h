@@ -78,6 +78,8 @@ class crp42602y_ctrl {
 
     /**
      * Constatns - User commands
+     * Note: No difference is made between CUE_FF/REW_COMMAND and FF/REW_COMMAND in crp42602y_ctrl library wise,
+     *       however, user can differentiate those status by audio operation such as muting depending on the status from is_ff_rew_ing() or is_cueing()
      */
     static constexpr command_t STOP_COMMAND         = {CMD_TYPE_STOP,   DIR_KEEP};
     static constexpr command_t PLAY_COMMAND         = {CMD_TYPE_PLAY,   DIR_KEEP};
@@ -114,6 +116,13 @@ class crp42602y_ctrl {
      * crp42602y_ctrl class destructor
      */
     virtual ~crp42602y_ctrl();
+
+    /**
+     * get is operating
+     *
+     * @return true if playing or (doing FF or REW) or cueing
+     */
+    bool is_operating() const;
 
     /**
      * get is playing

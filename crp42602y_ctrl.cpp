@@ -100,6 +100,11 @@ crp42602y_ctrl::~crp42602y_ctrl()
     queue_free(&_callback_queue);
 }
 
+bool crp42602y_ctrl::is_operating() const
+{
+    return _playing || _ff_rew_ing || _cueing;
+}
+
 bool crp42602y_ctrl::is_playing() const
 {
     return _playing;
