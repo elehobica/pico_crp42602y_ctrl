@@ -42,6 +42,8 @@ class crp42602y_ctrl {
     // Constants
     static constexpr uint32_t DEFAULT_POWER_OFF_TIMEOUT_SEC = 300;
     static constexpr uint32_t WAIT_MOTOR_STABLE_MS = 500;
+    static constexpr uint32_t GEAR_ERROR_TIMEOUT_MS = 300;
+    static constexpr bool     IGNORE_GEAR_SEQUENCE_CHECK = true;
     static constexpr uint     COMMAND_QUEUE_LENGTH = 6;
     static constexpr uint     CALLBACK_QUEUE_LENGTH = 4;
     static constexpr uint32_t SIGNAL_FILTER_MS = 100;

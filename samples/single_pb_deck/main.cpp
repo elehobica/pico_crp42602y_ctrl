@@ -241,7 +241,6 @@ static void crp42602y_process()
 {
     flash_safe_execute_core_init();  // no access to flash on core1
     _core1_is_running = true;
-    stop();
     while (_core1_exec) {
         crp42602y_ctrl0->process_loop();
     }
@@ -619,6 +618,7 @@ int main()
         crp42602y_ctrl::callback_type_t callback_type;
         while (crp42602y_get_callback(&callback_type)) {
             switch (callback_type) {
+            // don't use ON_REVERSE since it always comes with ON_PLAY
             case crp42602y_ctrl::ON_GEAR_ERROR:
                 printf("Gear error\r\n");
                 prev_disp_time = 0;
@@ -689,19 +689,6 @@ int main()
                 prev_disp_time = 0;
                 eq_nr0->set_mute(true);
                 break;
-            case crp42602y_ctrl::ON_REVERSE:
-                printf("Reversed\r\n");
-                _ssd1306_clear_square(&disp, 0, 0, 6*7, 8);
-                if (crp42602y_ctrl0->get_head_dir_is_a()) {
-                    printf("Play A\r\n");
-                    ssd1306_draw_string(&disp, 0, 0, 1, "Play A");
-                } else {
-                    printf("Play B\r\n");
-                    ssd1306_draw_string(&disp, 0, 0, 1, "Play B");
-                }
-                _ssd1306_show(&disp);
-                prev_disp_time = 0;
-                break;
             case crp42602y_ctrl::ON_TIMEOUT_POWER_OFF:
                 store_to_flash();
                 printf("Power off\r\n");
@@ -712,9 +699,12 @@ int main()
                 break;
             case crp42602y_ctrl::ON_RECOVER_POWER_FROM_TIMEOUT:
                 printf("Power recover\r\n");
+                stop();
                 disp_default_contents();
                 _crp42602y_power = true;
                 prev_disp_time = 0;
+                break;
+            default:
                 break;
             }
         }

@@ -170,16 +170,12 @@ void crp42602y_ctrl::recover_power_from_timeout()
 
 bool crp42602y_ctrl::send_command(const command_t& command)
 {
-    // Cancel same repeated command except for DIR_REVERSE
-    if (_command_history_registered[0].type == command.type && _command_history_registered[0].dir == command.dir && command.dir != DIR_REVERSE)
+    // Cancel same repeated command except for DIR_REVERSE (CMD_TYPE_STOP is always effective for fail-safe)
+    if (command.type != CMD_TYPE_STOP && _command_history_registered[0].type == command.type && _command_history_registered[0].dir == command.dir && command.dir != DIR_REVERSE) {
         return false;
+    }
 
-    if (command.type == CMD_TYPE_STOP) {
-        while (!queue_is_empty(&_command_queue)) {
-            command_t remove_command;
-            queue_remove_blocking(&_command_queue, &remove_command);
-        }
-    } else if (!_has_cassette) {
+    if (!_has_cassette) {
         return false;
     }
 
@@ -325,9 +321,14 @@ bool crp42602y_ctrl::_gear_func_sequence(const bool head_dir_is_a, const bool li
     _pull_solenoid(false);
     sleep_ms(20);  // additional margin
 
-    if (!_gear_is_in_func()) {
-        _dispatch_callback(ON_GEAR_ERROR);
-        return false;
+    // timeout for ON_GEAR_ERROR
+    uint32_t count = 0;
+    while (!_gear_is_in_func()) {
+        if (count++ > GEAR_ERROR_TIMEOUT_MS / 20) {
+            _dispatch_callback(ON_GEAR_ERROR);
+            return false;
+        }
+        sleep_ms(20);
     }
 
     _gear_store_status(head_dir_is_a, lift_head, reel_fwd);
@@ -353,9 +354,14 @@ bool crp42602y_ctrl::_gear_return_sequence()
     sleep_ms(340);
     sleep_ms(20);  // additional margin
 
-    if (_gear_is_in_func()) {
-        _dispatch_callback(ON_GEAR_ERROR);
-        return false;
+    // timeout for ON_GEAR_ERROR
+    uint32_t count = 0;
+    while (_gear_is_in_func()) {
+        if (count++ > GEAR_ERROR_TIMEOUT_MS / 20) {
+            _dispatch_callback(ON_GEAR_ERROR);
+            return false;
+        }
+        sleep_ms(20);
     }
 
     return true;
@@ -388,7 +394,8 @@ bool crp42602y_ctrl::_stop(direction_t dir)
 {
     if (_gear_is_in_func()) {
         _gear_changing = true;
-        if (!_gear_return_sequence()) {
+        bool flag = _gear_return_sequence();
+        if (!IGNORE_GEAR_SEQUENCE_CHECK && !flag) {
             _gear_changing = false;
             return false;
         }
@@ -404,7 +411,8 @@ bool crp42602y_ctrl::_play(direction_t dir)
     if (_gear_is_in_func()) {
         if (_gear_is_equal_status(_head_dir_is_a, true, _head_dir_is_a)) return false;
         _gear_changing = true;
-        if (!_gear_return_sequence()) {
+        bool flag = _gear_return_sequence();
+        if (!IGNORE_GEAR_SEQUENCE_CHECK && !flag) {
             _gear_changing = false;
             return false;
         }
@@ -416,7 +424,7 @@ bool crp42602y_ctrl::_play(direction_t dir)
     _gear_changing = true;
     bool flag = _gear_func_sequence(_head_dir_is_a, true, _head_dir_is_a);
     _gear_changing = false;
-    return flag;
+    return (IGNORE_GEAR_SEQUENCE_CHECK || flag);
 }
 
 bool crp42602y_ctrl::_cue(direction_t dir)
@@ -425,7 +433,8 @@ bool crp42602y_ctrl::_cue(direction_t dir)
     if (_gear_is_in_func()) {
         if (_gear_is_equal_status(_head_dir_is_a, false, _cue_dir_is_a)) return false;
         _gear_changing = true;
-        if (!_gear_return_sequence()) {
+        bool flag = _gear_return_sequence();
+        if (!IGNORE_GEAR_SEQUENCE_CHECK && !flag) {
             _gear_changing = false;
             return false;
         }
@@ -438,7 +447,7 @@ bool crp42602y_ctrl::_cue(direction_t dir)
     // Evacuate head, however note that the head direction still matters for which side the head is tracing,
     bool flag = _gear_func_sequence(_head_dir_is_a, false, _cue_dir_is_a);
     _gear_changing = false;
-    return flag;
+    return (IGNORE_GEAR_SEQUENCE_CHECK || flag);
 }
 
 void crp42602y_ctrl::_on_rotation_stop()
