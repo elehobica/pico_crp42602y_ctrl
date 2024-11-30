@@ -68,15 +68,25 @@ static constexpr int CALLBACK_QUEUE_LENGTH = 16;
 static volatile bool _core1_exec = false;
 static volatile bool _core1_is_running = false;
 
+typedef enum _button_id_t {
+    ID_UP_BUTTON = 0,
+    ID_DOWN_BUTTON,
+    ID_LEFT_BUTTON,
+    ID_RIGHT_BUTTON,
+    ID_CENTER_BUTTON,
+    ID_SET_BUTTON,
+    ID_RESET_BUTTON
+} button_id_t;
+
 // Note: 5 Way switch is supposed to be mounted as -90 degree rotated. (UP switch works as left direction)
 static button_t btns_5way_tactile_plus2[] = {
-    {"reset",  PIN_RESET_BUTTON,  &Buttons::DEFAULT_BUTTON_SINGLE_CONFIG},
-    {"set",    PIN_SET_BUTTON,    &Buttons::DEFAULT_BUTTON_SINGLE_CONFIG},
-    {"center", PIN_CENTER_BUTTON, &Buttons::DEFAULT_BUTTON_MULTI_CONFIG},
-    {"right",  PIN_RIGHT_BUTTON,  &Buttons::DEFAULT_BUTTON_MULTI_CONFIG},
-    {"left",   PIN_LEFT_BUTTON,   &Buttons::DEFAULT_BUTTON_MULTI_CONFIG},
-    {"down",   PIN_DOWN_BUTTON,   &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG},
-    {"up",     PIN_UP_BUTTON,     &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG}
+    {ID_RESET_BUTTON,  "reset",  PIN_RESET_BUTTON,  &Buttons::DEFAULT_BUTTON_SINGLE_CONFIG},
+    {ID_SET_BUTTON,    "set",    PIN_SET_BUTTON,    &Buttons::DEFAULT_BUTTON_SINGLE_CONFIG},
+    {ID_CENTER_BUTTON, "center", PIN_CENTER_BUTTON, &Buttons::DEFAULT_BUTTON_MULTI_CONFIG},
+    {ID_RIGHT_BUTTON,  "right",  PIN_RIGHT_BUTTON,  &Buttons::DEFAULT_BUTTON_MULTI_CONFIG},
+    {ID_LEFT_BUTTON,   "left",   PIN_LEFT_BUTTON,   &Buttons::DEFAULT_BUTTON_MULTI_CONFIG},
+    {ID_DOWN_BUTTON,   "down",   PIN_DOWN_BUTTON,   &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG},
+    {ID_UP_BUTTON,     "up",     PIN_UP_BUTTON,     &Buttons::DEFAULT_BUTTON_SINGLE_REPEAT_CONFIG}
 };
 
 // Instances
@@ -551,46 +561,46 @@ int main()
                     //printf("%s: 1 (Repeated %d)\r\n", btnEvent.button_name, btnEvent.repeat_count);
                 } else {
                     //printf("%s: 1\r\n", btnEvent.button_name);
-                    if (strncmp(btnEvent.button_name, "center", 6) == 0) {
+                    if (btnEvent.button_id == ID_CENTER_BUTTON) {
                         if (crp42602y_ctrl0->is_playing() || crp42602y_ctrl0->is_ff_rew_ing()) {
                             stop();
                         } else {
                             play(true);
                         }
-                    } else if (strncmp(btnEvent.button_name, "down", 4) == 0) {
+                    } else if (btnEvent.button_id == ID_DOWN_BUTTON) {
                         if (crp42602y_ctrl0->is_playing() || crp42602y_ctrl0->is_cueing()) {
                             cue_fast_forward();
                         } else {
                             fast_forward();
                         }
-                    } else if (strncmp(btnEvent.button_name, "up", 2) == 0) {
+                    } else if (btnEvent.button_id == ID_UP_BUTTON) {
                         if (crp42602y_ctrl0->is_playing() || crp42602y_ctrl0->is_cueing()) {
                             cue_rewind();
                         } else {
                             rewind();
                         }
-                    } else if (strncmp(btnEvent.button_name, "right", 5) == 0) {
+                    } else if (btnEvent.button_id == ID_RIGHT_BUTTON) {
                         inc_head_dir(_crp42602y_power && _has_cassette);
-                    } else if (strncmp(btnEvent.button_name, "left", 4) == 0) {
+                    } else if (btnEvent.button_id == ID_LEFT_BUTTON) {
                         inc_reverse_mode(_crp42602y_power);
-                    } else if (strncmp(btnEvent.button_name, "reset", 5) == 0) {
+                    } else if (btnEvent.button_id == ID_RESET_BUTTON) {
                         inc_eq(_crp42602y_power);
-                    } else if (strncmp(btnEvent.button_name, "set", 3) == 0) {
+                    } else if (btnEvent.button_id == ID_SET_BUTTON) {
                         inc_nr(_crp42602y_power);
                     }
                 }
                 break;
             case EVT_MULTI:
                 //printf("%s: %d\r\n", btnEvent.button_name, btnEvent.click_count);
-                if (strncmp(btnEvent.button_name, "center", 6) == 0 && btnEvent.click_count == 2) {
+                if (btnEvent.button_id == ID_CENTER_BUTTON && btnEvent.click_count == 2) {
                     play(false);
                 }
                 break;
             case EVT_LONG:
                 //printf("%s: Long\r\n", btnEvent.button_name);
-                if (strncmp(btnEvent.button_name, "left", 4) == 0) {
+                if (btnEvent.button_id == ID_LEFT_BUTTON) {
                     reset_counter();
-                } else if (strncmp(btnEvent.button_name, "right", 5) == 0) {
+                } else if (btnEvent.button_id == ID_RIGHT_BUTTON) {
                     if (!_flash_stored && !crp42602y_ctrl0->is_operating()) {
                         store_to_flash();
                     }
