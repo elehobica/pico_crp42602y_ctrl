@@ -544,12 +544,19 @@ void crp42602y_ctrl::_process_command()
                 _dispatch_callback(ON_PLAY);
             }
             break;
-        case CMD_TYPE_FF_REW:  // fallthrough
+        case CMD_TYPE_FF_REW:
+            if (_cue(command.dir)) {
+                _playing = false;
+                _ff_rew_ing = true;
+                _cueing = false;
+                _dispatch_callback(ON_FF_REW);
+            }
+            break;
         case CMD_TYPE_CUE:
             if (_cue(command.dir)) {
                 _playing = false;
-                _ff_rew_ing = command.type == CMD_TYPE_FF_REW;
-                _cueing = command.type == CMD_TYPE_CUE;
+                _ff_rew_ing = false;
+                _cueing = true;
                 _dispatch_callback(ON_CUE);
             }
             break;
@@ -723,7 +730,11 @@ void crp42602y_ctrl_with_counter::_process_command()
                     _ff_rew_ing = command.type == CMD_TYPE_FF_REW;
                     _cueing = command.type == CMD_TYPE_CUE;
                     _playing_for_wait_ff_rew_cue = false;
-                    _dispatch_callback(ON_CUE);
+                    if (command.type == CMD_TYPE_FF_REW) {
+                        _dispatch_callback(ON_FF_REW);
+                    } else if (command.type == CMD_TYPE_CUE) {
+                        _dispatch_callback(ON_CUE);
+                    }
                 }
                 queue_remove_blocking(&_command_queue, &command);
             }

@@ -70,6 +70,7 @@ class crp42602y_ctrl {
         ON_STOP,
         ON_PLAY,
         ON_CUE,
+        ON_FF_REW,
         ON_REVERSE,
         ON_TIMEOUT_POWER_OFF,
         ON_RECOVER_POWER_FROM_TIMEOUT,

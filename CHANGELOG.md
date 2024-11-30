@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 * Add EQ mute control for single_pb_deck sample project
 * Add is_operating()
+* Add ON_FF_REW callback
 ### Changed
 * Support pico-sdk 2.0.0
 * Revise TA7668BP_CXA1332M_board_customized schematic to improve low frequency gain

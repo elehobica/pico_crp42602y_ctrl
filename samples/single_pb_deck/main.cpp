@@ -420,7 +420,7 @@ static void disp_default_contents()
         ssd1306_draw_string(&disp, 32, 32-4, 1, "NO CASSETTE");
     }
 
-    _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
+    _ssd1306_clear_square(&disp, 0, 0, 6*7, 8);
     ssd1306_draw_string(&disp, 0, 0, 1, "STOP");
     _ssd1306_show(&disp);
 
@@ -644,14 +644,14 @@ int main()
                 break;
             case crp42602y_ctrl::ON_STOP:
                 printf("Stop\r\n");
-                _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
+                _ssd1306_clear_square(&disp, 0, 0, 6*7, 8);
                 ssd1306_draw_string(&disp, 0, 0, 1, "STOP");
                 _ssd1306_show(&disp);
                 prev_disp_time = 0;
                 eq_nr0->set_mute(true);
                 break;
             case crp42602y_ctrl::ON_PLAY:
-                _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
+                _ssd1306_clear_square(&disp, 0, 0, 6*7, 8);
                 if (crp42602y_ctrl0->get_head_dir_is_a()) {
                     printf("Play A\r\n");
                     ssd1306_draw_string(&disp, 0, 0, 1, "PLAY A");
@@ -663,8 +663,8 @@ int main()
                 prev_disp_time = 0;
                 eq_nr0->set_mute(false);
                 break;
-            case crp42602y_ctrl::ON_CUE:
-                _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
+            case crp42602y_ctrl::ON_FF_REW:
+                _ssd1306_clear_square(&disp, 0, 0, 6*7, 8);
                 if (crp42602y_ctrl0->get_cue_dir_is_a()) {
                     printf("FF\r\n");
                     ssd1306_draw_string(&disp, 0, 0, 1, "FF");
@@ -676,9 +676,22 @@ int main()
                 prev_disp_time = 0;
                 eq_nr0->set_mute(true);
                 break;
+            case crp42602y_ctrl::ON_CUE:
+                _ssd1306_clear_square(&disp, 0, 0, 6*7, 8);
+                if (crp42602y_ctrl0->get_cue_dir_is_a()) {
+                    printf("FF CUE\r\n");
+                    ssd1306_draw_string(&disp, 0, 0, 1, "FF CUE");
+                } else {
+                    printf("REW CUE\r\n");
+                    ssd1306_draw_string(&disp, 0, 0, 1, "REW CUE");
+                }
+                _ssd1306_show(&disp);
+                prev_disp_time = 0;
+                eq_nr0->set_mute(true);
+                break;
             case crp42602y_ctrl::ON_REVERSE:
                 printf("Reversed\r\n");
-                _ssd1306_clear_square(&disp, 0, 0, 6*6, 8);
+                _ssd1306_clear_square(&disp, 0, 0, 6*7, 8);
                 if (crp42602y_ctrl0->get_head_dir_is_a()) {
                     printf("Play A\r\n");
                     ssd1306_draw_string(&disp, 0, 0, 1, "Play A");
