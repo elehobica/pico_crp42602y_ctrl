@@ -73,6 +73,7 @@ crp42602y_ctrl::crp42602y_ctrl(
         _callbacks[i] = nullptr;
     }
 
+    queue_init(&_stop_queue, sizeof(uint32_t), 1);
     queue_init(&_command_queue, sizeof(command_t), COMMAND_QUEUE_LENGTH);
     queue_init(&_callback_queue, sizeof(callback_type_t), CALLBACK_QUEUE_LENGTH);
 
@@ -96,6 +97,7 @@ crp42602y_ctrl::crp42602y_ctrl(
 
 crp42602y_ctrl::~crp42602y_ctrl()
 {
+    queue_free(&_stop_queue);
     queue_free(&_command_queue);
     queue_free(&_callback_queue);
 }
@@ -170,12 +172,13 @@ void crp42602y_ctrl::recover_power_from_timeout()
 
 bool crp42602y_ctrl::send_command(const command_t& command)
 {
-    // Cancel same repeated command except for DIR_REVERSE (CMD_TYPE_STOP is always effective for fail-safe)
-    if (command.type != CMD_TYPE_STOP && _command_history_registered[0].type == command.type && _command_history_registered[0].dir == command.dir && command.dir != DIR_REVERSE) {
+    if (command.type == CMD_TYPE_STOP) {
+        uint32_t value = 1;
+        queue_try_add(&_stop_queue, &value);
+    } else if (!_has_cassette) {
         return false;
-    }
-
-    if (!_has_cassette) {
+    } else if (_command_history_registered[0].type == command.type && _command_history_registered[0].dir == command.dir && command.dir != DIR_REVERSE) {
+        // Cancel same repeated command except for DIR_REVERSE (CMD_TYPE_STOP is always effective for fail-safe)
         return false;
     }
 
@@ -529,8 +532,19 @@ void crp42602y_ctrl::_process_timeout_power_off(uint32_t now)
 
 void crp42602y_ctrl::_process_command()
 {
+    // Stop is first priority
+    if (!queue_is_empty(&_stop_queue)) {
+        uint32_t value;
+        queue_remove_blocking(&_stop_queue, &value);
+        command_t command;
+        while (!queue_is_empty(&_command_queue)) {
+            queue_remove_blocking(&_command_queue, &command);
+        }
+        queue_try_add(&_command_queue, &STOP_COMMAND);
+    }
+
     // Process command
-    if (queue_get_level(&_command_queue) > 0) {
+    if (!queue_is_empty(&_command_queue)) {
         command_t command;
         queue_remove_blocking(&_command_queue, &command);
         switch (command.type) {
@@ -582,7 +596,7 @@ void crp42602y_ctrl::_process_command()
 void crp42602y_ctrl::_process_callbacks()
 {
     // Process callback
-    while (queue_get_level(&_callback_queue) > 0) {
+    while (!queue_is_empty(&_callback_queue)) {
         callback_type_t callback_type;
         queue_remove_blocking(&_callback_queue, &callback_type);
         if (_callbacks[callback_type] != nullptr) {
@@ -676,8 +690,19 @@ void crp42602y_ctrl_with_counter::_process_set_eject_detection()
 
 void crp42602y_ctrl_with_counter::_process_command()
 {
+    // Stop is first priority
+    if (!queue_is_empty(&_stop_queue)) {
+        uint32_t value;
+        queue_remove_blocking(&_stop_queue, &value);
+        command_t command;
+        while (!queue_is_empty(&_command_queue)) {
+            queue_remove_blocking(&_command_queue, &command);
+        }
+        queue_try_add(&_command_queue, &STOP_COMMAND);
+    }
+
     // Process command
-    if (queue_get_level(&_command_queue) > 0) {
+    if (!queue_is_empty(&_command_queue)) {
         command_t command;
         queue_peek_blocking(&_command_queue, &command);
         switch (command.type) {
@@ -775,7 +800,7 @@ void crp42602y_ctrl_with_counter::_process_command()
 void crp42602y_ctrl_with_counter::_process_callbacks()
 {
     // Process callback
-    while (queue_get_level(&_callback_queue) > 0) {
+    while (!queue_is_empty(&_callback_queue)) {
         callback_type_t callback_type;
         queue_remove_blocking(&_callback_queue, &callback_type);
         if (callback_type >= __NUM_CALLBACK_TYPE__) {

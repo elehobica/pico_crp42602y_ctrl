@@ -271,6 +271,7 @@ class crp42602y_ctrl {
     command_t _command_history_registered[NUM_COMMAND_HISTORY_REGISTERED];
     command_t _command_history_issued[NUM_COMMAND_HISTORY_ISSUED];
     void (*_callbacks[__NUM_CALLBACK_TYPE__])(const callback_type_t callback_type);
+    queue_t   _stop_queue;
     queue_t   _command_queue;
     queue_t   _callback_queue;
 

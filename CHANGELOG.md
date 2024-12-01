@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 * Integrate single_pb_deck_with_rt_counter project into single_pb_deck project
 ### Fixed
 * Ignore commands except for STOP when no cassette
+* Introduce _stop_queue to remove _command_queue safely
 
 ## [0.8.0] - 2024-06-02
 ### Added
