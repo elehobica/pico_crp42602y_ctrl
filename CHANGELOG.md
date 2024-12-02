@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 * Ignore commands except for STOP when no cassette
 * Introduce _stop_queue to remove _command_queue safely
+* Correct real-time counter auto reset case (at auto-reverse timing only)
 
 ## [0.8.0] - 2024-06-02
 ### Added

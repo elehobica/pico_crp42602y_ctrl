@@ -292,7 +292,7 @@ class crp42602y_ctrl {
     bool _stop(const direction_t dir);
     bool _play(const direction_t dir);
     bool _cue(const direction_t dir);
-    void _on_rotation_stop();
+    virtual bool _on_rotation_stop();
     virtual void _process_filter(uint32_t now);
     virtual void _process_set_eject_detection();
     virtual void _process_timeout_power_off(uint32_t now);
@@ -373,6 +373,7 @@ class crp42602y_ctrl_with_counter : public crp42602y_ctrl {
 
     bool _is_playing_internal() const;
     bool _is_que_ready_for_counter(direction_t dir) const;
+    virtual bool _on_rotation_stop();
     virtual void _process_set_eject_detection();
     virtual void _process_command();
     virtual void _process_callbacks();

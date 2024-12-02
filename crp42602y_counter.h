@@ -72,6 +72,11 @@ class crp42602y_counter {
     void reset();
 
     /**
+     * reset the counter value of the other side
+     */
+    void reset_other_side();
+
+    /**
      * get the counter state
      */
     uint32_t get_state() const;

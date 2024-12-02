@@ -453,42 +453,34 @@ bool crp42602y_ctrl::_cue(direction_t dir)
     return (IGNORE_GEAR_SEQUENCE_CHECK || flag);
 }
 
-void crp42602y_ctrl::_on_rotation_stop()
+bool crp42602y_ctrl::_on_rotation_stop()
 {
-    if (!_gear_is_in_func()) return;
+    if (!_gear_is_in_func()) return false;
     uint32_t now = _millis();
-    if (now < _gear_last_time + 1000) return;
+    if (now < _gear_last_time + 1000) return false;
 
     // reverse if previous command is play, or cue after play in same direction
     bool reverse_flag = _command_history_issued[0].type == CMD_TYPE_PLAY  ||
                         ((_command_history_issued[0].type == CMD_TYPE_FF_REW || _command_history_issued[0].type == CMD_TYPE_CUE) && _command_history_issued[1].type == CMD_TYPE_PLAY &&
                             (_command_history_issued[0].dir == DIR_FORWARD) == _head_dir_is_a);
+    bool do_reverse;
     switch (_reverse_mode) {
-    case RVS_ONE_WAY:
-        send_command(STOP_COMMAND);
-        break;
     case RVS_ONE_ROUND:
-        if (reverse_flag) {
-            if (_head_dir_is_a) {
-                send_command(PLAY_REVERSE_COMMAND);
-            } else {
-                // It is expected to play A at next time after one round stops
-                send_command(STOP_REVERSE_COMMAND);
-            }
-        } else {
-            send_command(STOP_COMMAND);
-        }
+        do_reverse = reverse_flag && _head_dir_is_a;
         break;
     case RVS_INFINITE_ROUND:
-        if (reverse_flag) {
-            send_command(PLAY_REVERSE_COMMAND);
-        } else {
-            send_command(STOP_COMMAND);
-        }
+        do_reverse = reverse_flag;
         break;
     default:
-        send_command(STOP_COMMAND);
+        do_reverse = false;
         break;
+    }
+    if (do_reverse) {
+        send_command(PLAY_REVERSE_COMMAND);
+        return true;
+    } else {
+        send_command(STOP_COMMAND);
+        return false;
     }
 }
 
@@ -672,6 +664,13 @@ bool crp42602y_ctrl_with_counter::_is_que_ready_for_counter(direction_t dir) con
     return _counter._check_status(crp42602y_counter::RADIUS_A_BIT << fs);
 }
 
+bool crp42602y_ctrl_with_counter::_on_rotation_stop()
+{
+    bool reversed = crp42602y_ctrl::_on_rotation_stop();
+    if (reversed) { _counter.reset_other_side(); }
+    return reversed;
+}
+
 void crp42602y_ctrl_with_counter::_process_set_eject_detection()
 {
     // Cassette set/eject detection
@@ -723,7 +722,6 @@ void crp42602y_ctrl_with_counter::_process_command()
                 _cueing = false;
                 _playing_for_wait_ff_rew_cue = false;
                 if (command.dir == DIR_REVERSE) {
-                    _counter.reset();
                     _dispatch_callback(ON_REVERSE);
                 }
                 _dispatch_callback(ON_PLAY);

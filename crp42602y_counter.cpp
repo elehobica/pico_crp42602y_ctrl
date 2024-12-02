@@ -137,6 +137,14 @@ void crp42602y_counter::reset()
     }
 }
 
+void crp42602y_counter::reset_other_side()
+{
+    bool is_dir_a = _ctrl->get_head_dir_is_a();
+    if (_check_status(TIME_BIT)) {
+        _total_playing_sec[is_dir_a] = 0.0;
+    }
+}
+
 uint32_t crp42602y_counter::get_state() const
 {
     if (_check_status(ALL_BITS)) {
