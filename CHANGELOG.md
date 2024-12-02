@@ -6,15 +6,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 ### Added
-* Add EQ mute control for single_pb_deck sample project
 * Add is_operating()
 * Add ON_FF_REW callback
 * Add robustness for gear error (add timeout and ignore)
+* Add EQ mute control for single_pb_deck project
 ### Changed
 * Support pico-sdk 2.0.0
 * Revise TA7668BP_CXA1332M_board_customized schematic to improve low frequency gain
 * Set motor off at initial without cassette
 * Integrate single_pb_deck_with_rt_counter project into single_pb_deck project
+* Change power recovery behavior when any buttons or serial commands during power off for single_pb_deck project
 ### Fixed
 * Ignore commands except for STOP when no cassette
 * Introduce _stop_queue to remove _command_queue safely

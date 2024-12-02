@@ -59,9 +59,10 @@ static constexpr int INTERVAL_MS_BUTTONS_CHECK = 50;
 
 static uint32_t _count = 0;
 
+static constexpr uint32_t POWER_OFF_TIMEOUT_SEC = 300;
 static bool _has_cassette = false;
 static bool _crp42602y_power = true;
-static bool _flash_stored = false;
+static bool _flash_stored_display = false;
 static queue_t _callback_queue;
 static constexpr int CALLBACK_QUEUE_LENGTH = 16;
 
@@ -438,7 +439,7 @@ static void load_from_flash()
     crp42602y_ctrl0->set_reverse_mode(static_cast<crp42602y_ctrl::reverse_mode_t>(cfgParam.P_CFG_REVERSE_MODE.get()));
 }
 
-static void store_to_flash()
+static bool store_to_flash()
 {
     ConfigParam& cfgParam = ConfigParam::instance();
     cfgParam.P_CFG_EQ_TYPE.set(static_cast<uint32_t>(eq_nr0->get_eq_type()));
@@ -447,13 +448,16 @@ static void store_to_flash()
 
     // running core1 can let flash programming crash
     terminate_core1_crp42602y_process();
+    bool flag;
     if (cfgParam.finalize()) {
         printf("store ConfigParam to flash successfully\r\n");
-        _flash_stored = true;
+        flag = true;
     } else {
         printf("ERROR: failed to store ConfigParam to flash\r\n");
+        flag = false;
     }
     exec_core1_crp42602y_process();
+    return flag;
 }
 
 int main()
@@ -502,7 +506,7 @@ int main()
     } else {
         crp42602y_ctrl0 = new crp42602y_ctrl(PIN_CASSETTE_DETECT, PIN_GEAR_STATUS_SW, PIN_ROTATION_SENS, PIN_SOLENOID_CTRL, PIN_POWER_CTRL);
     }
-    crp42602y_ctrl0->set_power_off_timeout_sec(300);
+    crp42602y_ctrl0->set_power_off_timeout_sec(POWER_OFF_TIMEOUT_SEC);
     crp42602y_ctrl0->register_callback_all(crp42602y_callback);
 
     // EQ_NR
@@ -540,78 +544,88 @@ int main()
         // Serial I/F
         int c = getchar_timeout_us(0);
         if (c >= 0) {
-            if (c == 's') stop();
-            if (c == 'p') play(true);
-            if (c == 'q') play(false);
-            if (c == 'f') fast_forward();
-            if (c == 'r') rewind();
-            if (c == 'd') inc_head_dir();
-            if (c == 'v') inc_reverse_mode();
-            if (c == 'e') inc_eq();
-            if (c == 'n') inc_nr();
-            if (c == 'c') reset_counter();
+            if (!_crp42602y_power) {
+                crp42602y_ctrl0->recover_power_from_timeout();
+            } else {
+                if (c == 's') stop();
+                if (c == 'p') play(true);
+                if (c == 'q') play(false);
+                if (c == 'f') fast_forward();
+                if (c == 'r') rewind();
+                if (c == 'd') inc_head_dir();
+                if (c == 'v') inc_reverse_mode();
+                if (c == 'e') inc_eq();
+                if (c == 'n') inc_nr();
+                if (c == 'c') reset_counter();
+            }
         }
 
         // Button I/F
         if (buttons->get_button_event(btnEvent)) {
-            switch (btnEvent.type) {
-            case EVT_SINGLE:
-                if (btnEvent.repeat_count > 0) {
-                    //printf("%s: 1 (Repeated %d)\r\n", btnEvent.button_name, btnEvent.repeat_count);
-                } else {
-                    //printf("%s: 1\r\n", btnEvent.button_name);
-                    if (btnEvent.button_id == ID_CENTER_BUTTON) {
-                        if (crp42602y_ctrl0->is_playing() || crp42602y_ctrl0->is_ff_rew_ing()) {
-                            stop();
-                        } else {
-                            play(true);
+            if (!_crp42602y_power) {
+                crp42602y_ctrl0->recover_power_from_timeout();
+            } else {
+                switch (btnEvent.type) {
+                case EVT_SINGLE:
+                    if (btnEvent.repeat_count > 0) {
+                        //printf("%s: 1 (Repeated %d)\r\n", btnEvent.button_name, btnEvent.repeat_count);
+                    } else {
+                        //printf("%s: 1\r\n", btnEvent.button_name);
+                        if (btnEvent.button_id == ID_CENTER_BUTTON) {
+                            if (crp42602y_ctrl0->is_playing() || crp42602y_ctrl0->is_ff_rew_ing()) {
+                                stop();
+                            } else {
+                                play(true);
+                            }
+                        } else if (btnEvent.button_id == ID_DOWN_BUTTON) {
+                            if (crp42602y_ctrl0->is_playing() || crp42602y_ctrl0->is_cueing()) {
+                                cue_fast_forward();
+                            } else {
+                                fast_forward();
+                            }
+                        } else if (btnEvent.button_id == ID_UP_BUTTON) {
+                            if (crp42602y_ctrl0->is_playing() || crp42602y_ctrl0->is_cueing()) {
+                                cue_rewind();
+                            } else {
+                                rewind();
+                            }
+                        } else if (btnEvent.button_id == ID_RIGHT_BUTTON) {
+                            inc_head_dir(_crp42602y_power && _has_cassette);
+                        } else if (btnEvent.button_id == ID_LEFT_BUTTON) {
+                            inc_reverse_mode(_crp42602y_power);
+                        } else if (btnEvent.button_id == ID_RESET_BUTTON) {
+                            inc_eq(_crp42602y_power);
+                        } else if (btnEvent.button_id == ID_SET_BUTTON) {
+                            inc_nr(_crp42602y_power);
                         }
-                    } else if (btnEvent.button_id == ID_DOWN_BUTTON) {
-                        if (crp42602y_ctrl0->is_playing() || crp42602y_ctrl0->is_cueing()) {
-                            cue_fast_forward();
-                        } else {
-                            fast_forward();
-                        }
-                    } else if (btnEvent.button_id == ID_UP_BUTTON) {
-                        if (crp42602y_ctrl0->is_playing() || crp42602y_ctrl0->is_cueing()) {
-                            cue_rewind();
-                        } else {
-                            rewind();
-                        }
+                    }
+                    break;
+                case EVT_MULTI:
+                    //printf("%s: %d\r\n", btnEvent.button_name, btnEvent.click_count);
+                    if (btnEvent.button_id == ID_CENTER_BUTTON && btnEvent.click_count == 2) {
+                        play(false);
+                    }
+                    break;
+                case EVT_LONG:
+                    //printf("%s: Long\r\n", btnEvent.button_name);
+                    if (btnEvent.button_id == ID_LEFT_BUTTON) {
+                        reset_counter();
                     } else if (btnEvent.button_id == ID_RIGHT_BUTTON) {
-                        inc_head_dir(_crp42602y_power && _has_cassette);
-                    } else if (btnEvent.button_id == ID_LEFT_BUTTON) {
-                        inc_reverse_mode(_crp42602y_power);
-                    } else if (btnEvent.button_id == ID_RESET_BUTTON) {
-                        inc_eq(_crp42602y_power);
-                    } else if (btnEvent.button_id == ID_SET_BUTTON) {
-                        inc_nr(_crp42602y_power);
+                        if (!_flash_stored_display && !crp42602y_ctrl0->is_operating()) {
+                            if (store_to_flash()) {
+                                _flash_stored_display = true;
+                            }
+                        }
                     }
+                    break;
+                case EVT_LONG_LONG:
+                    //printf("%s: LongLong\r\n", btnEvent.button_name);
+                    break;
+                default:
+                    break;
                 }
-                break;
-            case EVT_MULTI:
-                //printf("%s: %d\r\n", btnEvent.button_name, btnEvent.click_count);
-                if (btnEvent.button_id == ID_CENTER_BUTTON && btnEvent.click_count == 2) {
-                    play(false);
-                }
-                break;
-            case EVT_LONG:
-                //printf("%s: Long\r\n", btnEvent.button_name);
-                if (btnEvent.button_id == ID_LEFT_BUTTON) {
-                    reset_counter();
-                } else if (btnEvent.button_id == ID_RIGHT_BUTTON) {
-                    if (!_flash_stored && !crp42602y_ctrl0->is_operating()) {
-                        store_to_flash();
-                    }
-                }
-                break;
-            case EVT_LONG_LONG:
-                //printf("%s: LongLong\r\n", btnEvent.button_name);
-                break;
-            default:
-                break;
+                crp42602y_ctrl0->extend_timeout_power_off();
             }
-            crp42602y_ctrl0->extend_timeout_power_off();
         }
 
         // Process callback
@@ -713,10 +727,10 @@ int main()
             if (_crp42602y_power) {
                 // Image Display
                 _ssd1306_clear_square(&disp, 0, 16, 128, 8*4);
-                if (_flash_stored) {
+                if (_flash_stored_display) {
                     ssd1306_draw_string(&disp, 24, 32-4, 1, "SETTING SAVED");
                     if (disp_count++ > 40) {
-                        _flash_stored = false;
+                        _flash_stored_display = false;
                         disp_count = 0;
                     }
                 } else if (!_has_cassette) {
