@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 * Add robustness for gear error (add timeout and ignore)
 * Add EQ mute control for single_pb_deck project
 ### Changed
-* Support pico-sdk 2.0.0
+* Support pico-sdk 2.1.0
 * Revise TA7668BP_CXA1332M_board_customized schematic to improve low frequency gain
 * Set motor off at initial without cassette
 * Integrate single_pb_deck_with_rt_counter project into single_pb_deck project
