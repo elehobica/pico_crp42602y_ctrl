@@ -649,6 +649,9 @@ int main()
                 printf("Cassette set\r\n");
                 _has_cassette = true;
                 prev_disp_time = 0;
+                if (crp42602y_ctrl0->get_reverse_mode() != crp42602y_ctrl::RVS_ONE_WAY) {
+                    crp42602y_ctrl0->set_head_dir_is_a(true);
+                }
                 crp42602y_ctrl0->recover_power_from_timeout();
                 break;
             case crp42602y_ctrl::ON_CASSETTE_EJECT:

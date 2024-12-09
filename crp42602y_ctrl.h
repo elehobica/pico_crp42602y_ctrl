@@ -292,6 +292,7 @@ class crp42602y_ctrl {
     bool _stop(const direction_t dir);
     bool _play(const direction_t dir);
     bool _cue(const direction_t dir);
+    void _process_stop_command();
     virtual bool _on_rotation_stop();
     virtual void _process_filter(uint32_t now);
     virtual void _process_set_eject_detection();

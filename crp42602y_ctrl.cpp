@@ -73,7 +73,7 @@ crp42602y_ctrl::crp42602y_ctrl(
         _callbacks[i] = nullptr;
     }
 
-    queue_init(&_stop_queue, sizeof(uint32_t), 1);
+    queue_init(&_stop_queue, sizeof(command_t), 1);
     queue_init(&_command_queue, sizeof(command_t), COMMAND_QUEUE_LENGTH);
     queue_init(&_callback_queue, sizeof(callback_type_t), CALLBACK_QUEUE_LENGTH);
 
@@ -173,8 +173,7 @@ void crp42602y_ctrl::recover_power_from_timeout()
 bool crp42602y_ctrl::send_command(const command_t& command)
 {
     if (command.type == CMD_TYPE_STOP) {
-        uint32_t value = 1;
-        queue_try_add(&_stop_queue, &value);
+        queue_try_add(&_stop_queue, &command);
     } else if (!_has_cassette) {
         return false;
     } else if (_command_history_registered[0].type == command.type && _command_history_registered[0].dir == command.dir && command.dir != DIR_REVERSE) {
@@ -459,24 +458,35 @@ bool crp42602y_ctrl::_on_rotation_stop()
     uint32_t now = _millis();
     if (now < _gear_last_time + 1000) return false;
 
-    // reverse if previous command is play, or cue after play in same direction
-    bool reverse_flag = _command_history_issued[0].type == CMD_TYPE_PLAY  ||
+    // play reverse if previous command is play or ff_rew/cue after play in same direction
+    bool play_reverse_flag = _command_history_issued[0].type == CMD_TYPE_PLAY  ||
                         ((_command_history_issued[0].type == CMD_TYPE_FF_REW || _command_history_issued[0].type == CMD_TYPE_CUE) && _command_history_issued[1].type == CMD_TYPE_PLAY &&
                             (_command_history_issued[0].dir == DIR_FORWARD) == _head_dir_is_a);
-    bool do_reverse;
+    // stop reverse if previous command is play, or ff_rew/cue in same direction as head
+    bool stop_reverse_flag = ((_command_history_issued[0].type == CMD_TYPE_PLAY) ||
+                        ((_command_history_issued[0].type == CMD_TYPE_FF_REW || _command_history_issued[0].type == CMD_TYPE_CUE) && (_command_history_issued[0].dir == DIR_FORWARD) == _head_dir_is_a));
+                        //((_command_history_issued[0].type == CMD_TYPE_FF_REW || _command_history_issued[0].type == CMD_TYPE_CUE) && _head_dir_is_a == _cue_dir_is_a));
+    bool do_play_reverse;
+    bool do_stop_reverse;
     switch (_reverse_mode) {
     case RVS_ONE_ROUND:
-        do_reverse = reverse_flag && _head_dir_is_a;
+        do_play_reverse = play_reverse_flag && _head_dir_is_a;
+        do_stop_reverse = stop_reverse_flag;
         break;
     case RVS_INFINITE_ROUND:
-        do_reverse = reverse_flag;
+        do_play_reverse = play_reverse_flag;
+        do_stop_reverse = stop_reverse_flag;
         break;
     default:
-        do_reverse = false;
+        do_play_reverse = false;
+        do_stop_reverse = false;
         break;
     }
-    if (do_reverse) {
+    if (do_play_reverse) {
         send_command(PLAY_REVERSE_COMMAND);
+        return true;
+    } else if (do_stop_reverse) {
+        send_command(STOP_REVERSE_COMMAND);
         return true;
     } else {
         send_command(STOP_COMMAND);
@@ -522,18 +532,23 @@ void crp42602y_ctrl::_process_timeout_power_off(uint32_t now)
     }
 }
 
+void crp42602y_ctrl::_process_stop_command()
+{
+    if (!queue_is_empty(&_stop_queue)) {
+        command_t stop_command;
+        queue_remove_blocking(&_stop_queue, &stop_command);
+        while (!queue_is_empty(&_command_queue)) {
+            command_t dispose_command;
+            queue_remove_blocking(&_command_queue, &dispose_command);
+        }
+        queue_try_add(&_command_queue, &stop_command);
+    }
+}
+
 void crp42602y_ctrl::_process_command()
 {
     // Stop is first priority
-    if (!queue_is_empty(&_stop_queue)) {
-        uint32_t value;
-        queue_remove_blocking(&_stop_queue, &value);
-        command_t command;
-        while (!queue_is_empty(&_command_queue)) {
-            queue_remove_blocking(&_command_queue, &command);
-        }
-        queue_try_add(&_command_queue, &STOP_COMMAND);
-    }
+    _process_stop_command();
 
     // Process command
     if (!queue_is_empty(&_command_queue)) {
@@ -690,15 +705,7 @@ void crp42602y_ctrl_with_counter::_process_set_eject_detection()
 void crp42602y_ctrl_with_counter::_process_command()
 {
     // Stop is first priority
-    if (!queue_is_empty(&_stop_queue)) {
-        uint32_t value;
-        queue_remove_blocking(&_stop_queue, &value);
-        command_t command;
-        while (!queue_is_empty(&_command_queue)) {
-            queue_remove_blocking(&_command_queue, &command);
-        }
-        queue_try_add(&_command_queue, &STOP_COMMAND);
-    }
+    _process_stop_command();
 
     // Process command
     if (!queue_is_empty(&_command_queue)) {
