@@ -167,6 +167,7 @@ void crp42602y_ctrl::recover_power_from_timeout()
     _set_power_enable(true);
     if (!power_enable) {
         _dispatch_callback(ON_RECOVER_POWER_FROM_TIMEOUT);
+        send_command(STOP_COMMAND);
     }
 }
 
@@ -494,7 +495,7 @@ bool crp42602y_ctrl::_on_rotation_stop()
     }
 }
 
-void crp42602y_ctrl::_process_filter(uint32_t now)
+bool crp42602y_ctrl::_process_filter(uint32_t now)
 {
     if (_get_diff_time(_prev_filter_time, now) >= SIGNAL_FILTER_MS) {
         // Switch filters
@@ -502,24 +503,33 @@ void crp42602y_ctrl::_process_filter(uint32_t now)
         _filter_signal(FILT_REC_A_OK, ((_pin_rec_a_sw != 0) ? !gpio_get(_pin_rec_a_sw) : false), _rec_a_ok);
         _filter_signal(FILT_REC_B_OK, ((_pin_rec_b_sw != 0) ? !gpio_get(_pin_rec_a_sw) : false), _rec_b_ok);
         _prev_filter_time = now;
+        return true;
     }
+    return false;
 }
 
-void crp42602y_ctrl::_process_set_eject_detection()
+bool crp42602y_ctrl::_process_set_eject_detection()
 {
-    // Cassette set/eject detection
+    bool flag = false;
     if (!_prev_has_cassette && _has_cassette) {
         _dispatch_callback(ON_CASSETTE_SET);
+        flag = true;
     } else if (_prev_has_cassette && !_has_cassette) {
         _dispatch_callback(ON_CASSETTE_EJECT);
         if (_gear_is_in_func()) {
             send_command(STOP_COMMAND);
         }
+        flag = true;
+    }
+    // reset head direction except for RVS_ONE_WAY case
+    if (flag && _reverse_mode != RVS_ONE_WAY) {
+        _head_dir_is_a = true;
     }
     _prev_has_cassette = _has_cassette;
+    return flag;
 }
 
-void crp42602y_ctrl::_process_timeout_power_off(uint32_t now)
+bool crp42602y_ctrl::_process_timeout_power_off(uint32_t now)
 {
     // Timeout power off (for mechanism)
     if (_gear_is_in_func() || !_get_power_enable() || _pin_power_ctrl == 0 || _extend_timeout) {
@@ -529,7 +539,9 @@ void crp42602y_ctrl::_process_timeout_power_off(uint32_t now)
     if (_get_diff_time(_prev_func_time, now) >= _power_off_timeout_sec * 1000 && _get_power_enable()) {
         _set_power_enable(false);
         _dispatch_callback(ON_TIMEOUT_POWER_OFF);
+        return true;
     }
+    return false;
 }
 
 void crp42602y_ctrl::_process_stop_command()
@@ -545,13 +557,15 @@ void crp42602y_ctrl::_process_stop_command()
     }
 }
 
-void crp42602y_ctrl::_process_command()
+bool crp42602y_ctrl::_process_command()
 {
     // Stop is first priority
     _process_stop_command();
 
+    bool flag = false;
     // Process command
     if (!queue_is_empty(&_command_queue)) {
+        flag = true;
         command_t command;
         queue_remove_blocking(&_command_queue, &command);
         switch (command.type) {
@@ -598,10 +612,12 @@ void crp42602y_ctrl::_process_command()
         }
         _command_history_issued[0] = command;
     }
+    return flag;
 }
 
-void crp42602y_ctrl::_process_callbacks()
+bool crp42602y_ctrl::_process_callbacks()
 {
+    bool flag = false;
     // Process callback
     while (!queue_is_empty(&_callback_queue)) {
         callback_type_t callback_type;
@@ -609,7 +625,9 @@ void crp42602y_ctrl::_process_callbacks()
         if (_callbacks[callback_type] != nullptr) {
             _callbacks[callback_type](callback_type);
         }
+        flag = true;
     }
+    return flag;
 }
 
 // -------------------------------------------------------------------------------
@@ -686,29 +704,24 @@ bool crp42602y_ctrl_with_counter::_on_rotation_stop()
     return reversed;
 }
 
-void crp42602y_ctrl_with_counter::_process_set_eject_detection()
+bool crp42602y_ctrl_with_counter::_process_set_eject_detection()
 {
-    // Cassette set/eject detection
-    if (!_prev_has_cassette && _has_cassette) {
+    if (crp42602y_ctrl::_process_set_eject_detection()) {
         _counter.restart();
-        _dispatch_callback(ON_CASSETTE_SET);
-    } else if (_prev_has_cassette && !_has_cassette) {
-        _counter.restart();
-        _dispatch_callback(ON_CASSETTE_EJECT);
-        if (_gear_is_in_func()) {
-            send_command(STOP_COMMAND);
-        }
+        return true;
     }
-    _prev_has_cassette = _has_cassette;
+    return false;
 }
 
-void crp42602y_ctrl_with_counter::_process_command()
+bool crp42602y_ctrl_with_counter::_process_command()
 {
     // Stop is first priority
     _process_stop_command();
 
+    bool flag = false;
     // Process command
     if (!queue_is_empty(&_command_queue)) {
+        flag = true;
         command_t command;
         queue_peek_blocking(&_command_queue, &command);
         switch (command.type) {
@@ -800,10 +813,12 @@ void crp42602y_ctrl_with_counter::_process_command()
         }
         _command_history_issued[0] = command;
     }
+    return flag;
 }
 
-void crp42602y_ctrl_with_counter::_process_callbacks()
+bool crp42602y_ctrl_with_counter::_process_callbacks()
 {
+    bool flag = false;
     // Process callback
     while (!queue_is_empty(&_callback_queue)) {
         callback_type_t callback_type;
@@ -817,5 +832,7 @@ void crp42602y_ctrl_with_counter::_process_callbacks()
                 crp42602y_ctrl::_callbacks[callback_type](callback_type);
             }
         }
+        flag = true;
     }
+    return flag;
 }
