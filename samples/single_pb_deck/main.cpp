@@ -46,6 +46,10 @@ static constexpr uint PIN_CENTER_BUTTON = 22;
 static constexpr uint PIN_SET_BUTTON    = 26;
 static constexpr uint PIN_RESET_BUTTON  = 27;
 
+// Bluetooth Tx Connect pin
+static constexpr uint PIN_BT_TX_POWER   = 16;
+static constexpr uint PIN_BT_TX_CONNECT = 15;
+
 // Real-time counter
 static constexpr uint PIN_REALTIME_COUNTER_SEL  = 28;
 
@@ -63,6 +67,8 @@ static constexpr uint32_t POWER_OFF_TIMEOUT_SEC = 300;
 static bool _has_cassette = false;
 static bool _crp42602y_power = true;
 static bool _flash_stored_display = false;
+static bool _bt_tx_power = false;
+static bool _bt_tx_connect_req = false;
 static queue_t _callback_queue;
 static constexpr int CALLBACK_QUEUE_LENGTH = 16;
 
@@ -411,6 +417,16 @@ static void reset_counter()
     }
 }
 
+static void bt_tx_power_enable(bool flag)
+{
+    gpio_put(PIN_BT_TX_POWER, flag);
+}
+
+static void bt_tx_push_connect_button(bool flag)
+{
+    gpio_put(PIN_BT_TX_CONNECT, flag);
+}
+
 static void disp_default_contents()
 {
     _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
@@ -512,6 +528,14 @@ int main()
     // EQ_NR
     eq_nr0 = new eq_nr(PIN_EQ_CTRL, PIN_NR_CTRL0, PIN_NR_CTRL1, PIN_EQ_MUTE);
 
+    // Bluetooth Tx
+    gpio_init(PIN_BT_TX_POWER);
+    gpio_set_dir(PIN_BT_TX_POWER, GPIO_OUT);
+    gpio_init(PIN_BT_TX_CONNECT);
+    gpio_set_dir(PIN_BT_TX_CONNECT, GPIO_OUT);
+    bt_tx_power_enable(_bt_tx_power);
+    bt_tx_push_connect_button(false);
+
     // SSD1306
     disp.external_vcc = false;
     ssd1306_init(&disp, 128, 64, 0x3C, i2c0);
@@ -538,6 +562,7 @@ int main()
 
     uint32_t prev_disp_time = 0;
     int disp_count = 0;
+    int bt_tx_count = 0;
     while (true) {
         uint32_t now_time = _millis();
 
@@ -602,8 +627,12 @@ int main()
                     break;
                 case EVT_MULTI:
                     //printf("%s: %d\r\n", btnEvent.button_name, btnEvent.click_count);
-                    if (btnEvent.button_id == ID_CENTER_BUTTON && btnEvent.click_count == 2) {
-                        play(false);
+                    if (btnEvent.button_id == ID_CENTER_BUTTON) {
+                        if (btnEvent.click_count == 2) {
+                            play(false);
+                        } else if (btnEvent.click_count == 3) {
+                            _bt_tx_connect_req = true;
+                        }
                     }
                     break;
                 case EVT_LONG:
@@ -620,6 +649,10 @@ int main()
                     break;
                 case EVT_LONG_LONG:
                     //printf("%s: LongLong\r\n", btnEvent.button_name);
+                    if (btnEvent.button_id == ID_CENTER_BUTTON) {
+                        _bt_tx_power = !_bt_tx_power;
+                        bt_tx_power_enable(_bt_tx_power);
+                    }
                     break;
                 default:
                     break;
@@ -771,8 +804,19 @@ int main()
                     }
                 }
                 _ssd1306_show(&disp);
+                // Bluetooth
+                if (_bt_tx_connect_req) {
+                    bt_tx_push_connect_button(true);
+                    _bt_tx_connect_req = false;
+                    bt_tx_count = 0;
+                } else if (bt_tx_count++ > 2) {
+                    bt_tx_count = 0;
+                    bt_tx_push_connect_button(false);
+                }
             } else {
                 disp_count = 0;
+                bt_tx_count = 0;
+                bt_tx_push_connect_button(false);
             }
             prev_disp_time = now_time;
         }
