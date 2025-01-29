@@ -46,6 +46,10 @@ static constexpr uint PIN_CENTER_BUTTON = 22;
 static constexpr uint PIN_SET_BUTTON    = 26;
 static constexpr uint PIN_RESET_BUTTON  = 27;
 
+// Bluetooth Tx Connect pin
+static constexpr uint PIN_BT_TX_POWER   = 16;
+static constexpr uint PIN_BT_TX_CONNECT = 15;
+
 // Real-time counter
 static constexpr uint PIN_REALTIME_COUNTER_SEL  = 28;
 
@@ -63,8 +67,14 @@ static constexpr uint32_t POWER_OFF_TIMEOUT_SEC = 300;
 static bool _has_cassette = false;
 static bool _crp42602y_power = true;
 static bool _flash_stored_display = false;
-static queue_t _callback_queue;
+static bool _bt_tx_power = false;
+static bool _bt_tx_connect_req = false;
+
+static constexpr uint32_t DISP_INTERVAL_MS         = 50;  // ms
+static constexpr uint32_t BT_TX_CONNECT_BLINK_TERM = (1200 / DISP_INTERVAL_MS + 7)/8*8 - 1;
+
 static constexpr int CALLBACK_QUEUE_LENGTH = 16;
+static queue_t _callback_queue;
 
 static volatile bool _core1_exec = false;
 static volatile bool _core1_is_running = false;
@@ -99,7 +109,7 @@ static ssd1306_t disp;
 
 /*
  * Font Format for reverse mode
- * <height>, <width>, <additional spacing per char>, 
+ * <height>, <width>, <additional spacing per char>,
  * <first ascii char>, <last ascii char>,
  * <data>
  */
@@ -115,6 +125,19 @@ static const uint8_t font_reverse_mode[] =
     // Infinite Round
     0x00,0x00,0xC0,0x03,0x20,0x04,0x10,0x08,0x10,0x1C,0x10,0x3E,0x10,0x7F,0x10,0x08,
     0x10,0x08,0xFE,0x08,0x7C,0x08,0x38,0x08,0x10,0x08,0x20,0x04,0xC0,0x03,0x00,0x00
+};
+
+/*
+ * Font Format for bluetooth
+ * <height>, <width>, <additional spacing per char>,
+ * <first ascii char>, <last ascii char>,
+ * <data>
+ */
+static const uint8_t font_bluetooth[] =
+{
+    16, 16, 1, 0, 0,
+    0x00,0x00,0x00,0x00,0x00,0x00,0xC0,0x07,0xF0,0x1F,0xB8,0x3B,0x7C,0x7D,0x04,0x40,
+    0xEC,0x6E,0x5C,0x75,0xB8,0x3B,0xF0,0x1F,0xC0,0x07,0x00,0x00,0x00,0x00,0x00,0x00
 };
 
 static inline uint64_t _micros()
@@ -403,6 +426,27 @@ static void inc_nr(bool inc = true)
     _ssd1306_show(&disp);
 }
 
+static void set_bt_tx_enable(bool flag)
+{
+    _bt_tx_power = flag;
+    gpio_put(PIN_BT_TX_POWER, _bt_tx_power);
+}
+
+static bool get_bt_tx_enable()
+{
+    return _bt_tx_power;
+}
+
+static void toggle_bt_tx_enable()
+{
+    set_bt_tx_enable(!get_bt_tx_enable());
+}
+
+static void send_bt_tx_connect(bool flag)
+{
+    gpio_put(PIN_BT_TX_CONNECT, flag);
+}
+
 static void reset_counter()
 {
     if (crp42602y_counter0 != nullptr) {
@@ -413,7 +457,7 @@ static void reset_counter()
 
 static void disp_default_contents()
 {
-    _ssd1306_clear_square(&disp, 0, 8, 128, 8*5);
+    _ssd1306_clear_square(&disp, 0, 8, 128-16, 8*5);
     if (_has_cassette) {
         _ssd1306_draw_stop_arrow(&disp, crp42602y_ctrl0->get_head_dir_is_a());
     } else {
@@ -437,6 +481,7 @@ static void load_from_flash()
     eq_nr0->set_eq_type(static_cast<eq_nr::eq_type_t>(cfgParam.P_CFG_EQ_TYPE.get()));
     eq_nr0->set_nr_type(static_cast<eq_nr::nr_type_t>(cfgParam.P_CFG_NR_TYPE.get()));
     crp42602y_ctrl0->set_reverse_mode(static_cast<crp42602y_ctrl::reverse_mode_t>(cfgParam.P_CFG_REVERSE_MODE.get()));
+    set_bt_tx_enable(cfgParam.P_CFG_BT_TX_ENABLE.get());
 }
 
 static bool store_to_flash()
@@ -445,6 +490,7 @@ static bool store_to_flash()
     cfgParam.P_CFG_EQ_TYPE.set(static_cast<uint32_t>(eq_nr0->get_eq_type()));
     cfgParam.P_CFG_NR_TYPE.set(static_cast<uint32_t>(eq_nr0->get_nr_type()));
     cfgParam.P_CFG_REVERSE_MODE.set(static_cast<uint32_t>(crp42602y_ctrl0->get_reverse_mode()));
+    cfgParam.P_CFG_BT_TX_ENABLE.set(get_bt_tx_enable());
 
     // running core1 can let flash programming crash
     terminate_core1_crp42602y_process();
@@ -512,6 +558,13 @@ int main()
     // EQ_NR
     eq_nr0 = new eq_nr(PIN_EQ_CTRL, PIN_NR_CTRL0, PIN_NR_CTRL1, PIN_EQ_MUTE);
 
+    // Bluetooth Tx
+    gpio_init(PIN_BT_TX_POWER);
+    gpio_set_dir(PIN_BT_TX_POWER, GPIO_OUT);
+    gpio_init(PIN_BT_TX_CONNECT);
+    gpio_set_dir(PIN_BT_TX_CONNECT, GPIO_OUT);
+    send_bt_tx_connect(false);
+
     // SSD1306
     disp.external_vcc = false;
     ssd1306_init(&disp, 128, 64, 0x3C, i2c0);
@@ -538,6 +591,7 @@ int main()
 
     uint32_t prev_disp_time = 0;
     int disp_count = 0;
+    int bt_tx_count = 0;
     while (true) {
         uint32_t now_time = _millis();
 
@@ -602,8 +656,16 @@ int main()
                     break;
                 case EVT_MULTI:
                     //printf("%s: %d\r\n", btnEvent.button_name, btnEvent.click_count);
-                    if (btnEvent.button_id == ID_CENTER_BUTTON && btnEvent.click_count == 2) {
-                        play(false);
+                    if (btnEvent.button_id == ID_CENTER_BUTTON) {
+                        if (btnEvent.click_count == 2) {
+                            play(false);
+                        } else if (btnEvent.click_count == 3) {
+                            if (!get_bt_tx_enable()) {
+                                set_bt_tx_enable(true);
+                            } else {
+                                _bt_tx_connect_req = true;
+                            }
+                        }
                     }
                     break;
                 case EVT_LONG:
@@ -620,6 +682,9 @@ int main()
                     break;
                 case EVT_LONG_LONG:
                     //printf("%s: LongLong\r\n", btnEvent.button_name);
+                    if (btnEvent.button_id == ID_CENTER_BUTTON) {
+                        toggle_bt_tx_enable();
+                    }
                     break;
                 default:
                     break;
@@ -722,10 +787,10 @@ int main()
             }
         }
 
-        if (now_time - prev_disp_time > 50) {
+        if (now_time - prev_disp_time > DISP_INTERVAL_MS) {
             if (_crp42602y_power) {
                 // Image Display
-                _ssd1306_clear_square(&disp, 0, 16, 128, 8*4);
+                _ssd1306_clear_square(&disp, 0, 16, 128-16, 8*4);
                 if (_flash_stored_display) {
                     ssd1306_draw_string(&disp, 24, 32-4, 1, "SETTING SAVED");
                     if (disp_count++ > 40) {
@@ -770,9 +835,28 @@ int main()
                         ssd1306_draw_string(&disp, 6*6, 64-8, 1, str);
                     }
                 }
+                // Bluetooth
+                _ssd1306_clear_square(&disp, 128-16, 32-8, 16, 16);
+                if (get_bt_tx_enable()) {
+                    if (_bt_tx_connect_req) {
+                        send_bt_tx_connect(true);
+                        _bt_tx_connect_req = false;
+                        bt_tx_count = BT_TX_CONNECT_BLINK_TERM;
+                    } else if (bt_tx_count > 0) {
+                        if (bt_tx_count-- == BT_TX_CONNECT_BLINK_TERM - 4) {
+                            send_bt_tx_connect(false);
+                        }
+                    }
+                    if (bt_tx_count % 8 < 4) {
+                        ssd1306_draw_char_with_font(&disp, 128-16, 32-8, 1, font_bluetooth, 0);
+                    }
+                }
+                // Display
                 _ssd1306_show(&disp);
             } else {
                 disp_count = 0;
+                bt_tx_count = 0;
+                send_bt_tx_connect(false);
             }
             prev_disp_time = now_time;
         }

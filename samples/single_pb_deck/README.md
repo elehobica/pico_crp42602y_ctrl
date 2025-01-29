@@ -14,6 +14,7 @@
 * CRP42602Y mechanism
 * TA7668BP + CXA1332M board with customization
 * SSD1306 128x64 OLED display
+* [KCX BT EMITTER V1.7](doc/KCX_BT_EMITTER_V1.7.jpg) (Bluetooth Transmitter)
 
 ## Pin Assignment & Connection
 ### CRP42602Y circuit
@@ -25,6 +26,8 @@
 | 7 | GP5 | GPIO Input | ROTATION_SENS from CRP42602Y pin 2 |
 | 8 | GND | GND | GND |
 | 9 | GP6 | GPIO Output | to POWER_CTRL (0: disable, 1: enable) |
+| 16 | GP12 | GPIO Input | REC_A_SW from CRP42602Y pin 8 (reserved) |
+| 17 | GP13 | GPIO Input | REC_B_SW from CRP42602Y pin 1 (reserved) |
 
 ### Real-time counter
 | Pico Pin # | Pin Name | Function | Description |
@@ -39,6 +42,12 @@
 | 14 | GP10 | GPIO Output | to NR_CTRL0 (0: Dolby B, 1: Dolby C) |
 | 15 | GP11 | GPIO Output | to NR_CTRL1 (0: NR ON, 1: NR OFF) |
 | 19 | GP14 | GPIO Output | to EQ_MUTE (0: Mute OFF, 1: Mute ON) |
+
+### Bluetooth Tx Module
+| Pico Pin # | Pin Name | Function | Description |
+----|----|----|----
+| 20 | GP15 | GPIO Output | to BT_TX_CONNECT (Bluetooth Tx Module Connect Push Button) |
+| 21 | GP16 | GPIO Output | to BT_TX_POWER (Bluetooth Tx Module Power Enable) |
 
 ### SSD1306
 | Pico Pin # | Pin Name | Function | Connection |
@@ -69,7 +78,7 @@
 
 ## Button operation
 Note: 5 Way switch is supposed to be mounted as -90 degree rotated. (UP switch works as left direction)
-* CENTER: play/stop (single click), reverse play (double click)
+* CENTER: play/stop (single click), reverse play (double click), bluetooth connect (triple click), bluetooth on/off (long push)
 * DOWN (right): fast forward
 * UP (left): rewind
 * RIGHT (up): direction A/B (single push), save flush (long push)

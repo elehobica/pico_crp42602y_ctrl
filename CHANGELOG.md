@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 * Add ON_FF_REW callback
 * Add robustness for gear error (add timeout and ignore)
 * Add EQ mute control for single_pb_deck project
+* Add Bluetooth Tx control for single_pb_deck project
 * Support inverting head direction on stop depending on reverse mode
 ### Changed
 * Support pico-sdk 2.1.0

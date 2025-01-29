@@ -24,4 +24,5 @@ struct ConfigParam : FlashParamNs::FlashParam {
     FlashParamNs::Parameter<uint32_t>    P_CFG_EQ_TYPE     {ID_BASE + 0, "CFG_EQ_TYPE",      0};
     FlashParamNs::Parameter<uint32_t>    P_CFG_NR_TYPE     {ID_BASE + 1, "CFG_NR_TYPE",      0};
     FlashParamNs::Parameter<uint32_t>    P_CFG_REVERSE_MODE{ID_BASE + 2, "CFG_REVERSE_MODE", 0};
+    FlashParamNs::Parameter<bool>        P_CFG_BT_TX_ENABLE{ID_BASE + 3, "CFG_BT_TX_ENABLE", false};
 };
