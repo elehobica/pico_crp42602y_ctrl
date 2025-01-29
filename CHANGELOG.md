@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 * Add EQ mute control for single_pb_deck project
 * Add Bluetooth Tx control for single_pb_deck project
 * Support inverting head direction on stop depending on reverse mode
+* Add Discrete EQ plus CXA1332M board schematic
 ### Changed
 * Support pico-sdk 2.1.0
 * Revise TA7668BP_CXA1332M_board_customized schematic to improve low frequency gain

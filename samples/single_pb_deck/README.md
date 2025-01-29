@@ -72,9 +72,16 @@
 [CRP62402Y_ctrl_with_buttons_schematic](doc/CRP62402Y_ctrl_with_buttons_schematic.pdf)
 
 ### EQ NR board (customized)
+Two options are available from following boards.
+* TA7668BP_CXA1332M customized board
 <img src="doc/TA7668BP_CXA1332M_board_customized.jpg" width="400" />
 
-[EQ_NR_Schematic](doc/TA7668BP_CXA1332M_board_customized.pdf)
+[TA7668BP_CXA1332M customized board schematic](doc/TA7668BP_CXA1332M_board_customized.pdf)
+
+
+* Discrete EQ plus CXA1332M board
+
+[Discrete EQ plus CXA1332M board schematic](doc/Discrete_EQ_plus_CXA1332M_board.pdf)
 
 ## Button operation
 Note: 5 Way switch is supposed to be mounted as -90 degree rotated. (UP switch works as left direction)
