@@ -14,6 +14,7 @@
 * CRP42602Y mechanism
 * TA7668BP + CXA1332M board with customization
 * SSD1306 128x64 OLED display
+* [KCX BT EMITTER V1.7](doc/KCX_BT_EMITTER_V1.7.jpg) (Bluetooth Transmitter)
 
 ## Pin Assignment & Connection
 ### CRP42602Y circuit
