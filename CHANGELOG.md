@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+
+## [0.9.0] - 2025-02-16
 ### Added
 * Add is_operating()
 * Add ON_FF_REW callback
