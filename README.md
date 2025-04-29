@@ -1,5 +1,7 @@
 # Raspberry Pi Pico CRP42602Y mechanism control
 
+[![Build](https://github.com/elehobica/pico_crp42602y_ctrl/actions/workflows/build-binaries.yml/badge.svg)](https://github.com/elehobica/pico_crp42602y_ctrl/actions/workflows/build-binaries.yml)
+
 ## Overview
 Control library for CRP42602Y auto-reverse cassette tape deck mechanism
 
